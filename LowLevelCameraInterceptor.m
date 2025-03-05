@@ -1,5 +1,6 @@
 // LowLevelCameraInterceptor.m
 
+#import <UIKit/UIKit.h>
 #import "LowLevelCameraInterceptor.h"
 #import "logger.h"
 #import <dlfcn.h>
@@ -52,7 +53,7 @@ typedef struct {
 static void SaveBufferSample(CVPixelBufferRef pixelBuffer, NSString *context);
 static NSString *PixelBufferDetailedDescription(CVPixelBufferRef pixelBuffer);
 static NSString *GetIOServiceProperties(io_service_t service);
-static IOSurfaceRef GetIOSurfaceFromPixelBuffer(CVPixelBufferRef pixelBuffer);
+//static IOSurfaceRef GetIOSurfaceFromPixelBuffer(CVPixelBufferRef pixelBuffer);
 static NSString *DescribeIOSurface(IOSurfaceRef surface);
 static NSString *GetCurrentAppInfo(void);
 static void AnalyzePixelBufferContent(CVPixelBufferRef pixelBuffer, NSString *context);
@@ -359,11 +360,11 @@ static NSString *GetCallerInfo(void);
             io_service_t service;
             while ((service = IOIteratorNext(iterator))) {
                 NSString *serviceName = (__bridge_transfer NSString *)IORegistryEntryCreateCFProperty(
-                    service, CFSTR("IONameMatch"), kCFAllocatorDefault, 0);
+                                                                                                      service, CFSTR("IONameMatch"), kCFAllocatorDefault, 0);
                 
                 if (!serviceName) {
                     serviceName = (__bridge_transfer NSString *)IORegistryEntryCreateCFProperty(
-                        service, CFSTR("IOName"), kCFAllocatorDefault, 0);
+                                                                                                service, CFSTR("IOName"), kCFAllocatorDefault, 0);
                 }
                 
                 if (!serviceName) {
@@ -393,9 +394,9 @@ static NSString *GetCallerInfo(void);
                 
                 // Configurar notificação para quando o serviço for usado
                 IOServiceAddInterestNotification(
-                    masterPort, service, kIOGeneralInterest,
-                    IOServiceInterestCallback, (__bridge void *)(self),
-                    &_ioIterator);
+                                                 masterPort, service, kIOGeneralInterest,
+                                                 MyIOServiceInterestCallback, (__bridge void *)(self),
+                                                 &_ioIterator);
                 
                 IOObjectRelease(service);
             }
@@ -455,7 +456,7 @@ static NSString *GetCallerInfo(void);
         }
         
         LOG_INFO(@"Analisando padrões de fluxo de buffer (%lu registros)...",
-                (unsigned long)self->_bufferFlowRecords.count);
+                 (unsigned long)self->_bufferFlowRecords.count);
         
         // 1. Identificar caminhos comuns de buffer
         NSMutableDictionary *sourcesToDestinations = [NSMutableDictionary dictionary];
@@ -501,8 +502,8 @@ static NSString *GetCallerInfo(void);
             LOG_INFO(@"Identificados %lu caminhos críticos de buffer", (unsigned long)criticalPaths.count);
             for (NSDictionary *path in criticalPaths) {
                 LOG_INFO(@"  Fonte: %@, Destinos: %lu",
-                        path[@"source"],
-                        (unsigned long)[path[@"destinations"] count]);
+                         path[@"source"],
+                         (unsigned long)[path[@"destinations"] count]);
                 LOG_DEBUG(@"    Destinos: %@", path[@"destinations"]);
             }
         }
@@ -548,7 +549,7 @@ static NSString *GetCallerInfo(void);
         
         if (modificationPoints.count > 0) {
             LOG_INFO(@"Identificados %lu pontos de modificação de buffer",
-                    (unsigned long)modificationPoints.count);
+                     (unsigned long)modificationPoints.count);
         }
         
         // 5. Analisar uso de IOSurface
@@ -567,7 +568,7 @@ static NSString *GetCallerInfo(void);
         
         if (surfaceUsage.count > 0) {
             LOG_INFO(@"Identificadas %lu IOSurfaces compartilhadas entre componentes",
-                    (unsigned long)surfaceUsage.count);
+                     (unsigned long)surfaceUsage.count);
             
             // Ordenar por número de usos
             NSArray *sortedSurfaces = [surfaceUsage.allValues sortedArrayUsingComparator:^NSComparisonResult(id obj1, id obj2) {
@@ -578,8 +579,8 @@ static NSString *GetCallerInfo(void);
             
             for (NSDictionary *surface in sortedSurfaces) {
                 LOG_INFO(@"  IOSurface %@: %lu usos",
-                        surface[@"id"],
-                        (unsigned long)[surface[@"usages"] count]);
+                         surface[@"id"],
+                         (unsigned long)[surface[@"usages"] count]);
                 LOG_DEBUG(@"    Usos: %@", surface[@"usages"]);
             }
         }
@@ -765,9 +766,9 @@ void *replaced_CVPixelBufferGetBaseAddress(CVPixelBufferRef pixelBuffer) {
 
 // CMVideoFormatDescriptionCreateForImageBuffer - Chamado quando um formato é criado
 OSStatus replaced_CMVideoFormatDescriptionCreateForImageBuffer(
-    CFAllocatorRef allocator,
-    CVImageBufferRef imageBuffer,
-    CMVideoFormatDescriptionRef *outDesc) {
+                                                               CFAllocatorRef allocator,
+                                                               CVImageBufferRef imageBuffer,
+                                                               CMVideoFormatDescriptionRef *outDesc) {
     
     OSStatus result = original_CMVideoFormatDescriptionCreateForImageBuffer(allocator, imageBuffer, outDesc);
     
@@ -817,11 +818,11 @@ OSStatus replaced_CMVideoFormatDescriptionCreateForImageBuffer(
 
 // CVPixelBufferCreate - Chamado quando um buffer é criado
 CVReturn replaced_CVPixelBufferCreate(
-    CFAllocatorRef allocator,
-    size_t width, size_t height,
-    OSType pixelFormatType,
-    CFDictionaryRef pixelBufferAttributes,
-    CVPixelBufferRef *pixelBufferOut) {
+                                      CFAllocatorRef allocator,
+                                      size_t width, size_t height,
+                                      OSType pixelFormatType,
+                                      CFDictionaryRef pixelBufferAttributes,
+                                      CVPixelBufferRef *pixelBufferOut) {
     
     CVReturn result = original_CVPixelBufferCreate(allocator, width, height, pixelFormatType, pixelBufferAttributes, pixelBufferOut);
     
@@ -868,12 +869,12 @@ CVReturn replaced_CVPixelBufferCreate(
 
 // CVPixelBufferPoolCreatePixelBuffer - Ponto crítico para interceptação! Frequentemente usado pela câmera
 CVReturn replaced_CVPixelBufferPoolCreatePixelBuffer(
-    CFAllocatorRef allocator,
-    CVPixelBufferPoolRef pixelBufferPool,
-    CVPixelBufferRef *pixelBufferOut) {
+                                                     CFAllocatorRef allocator,
+                                                     CVPixelBufferPoolRef pixelBufferPool,
+                                                     CVPixelBufferRef *pixelBufferOut) {
     
     // Gerar um ID para o pool para rastreamento
-    NSString *poolID = [NSString stringWithFormat:@"%p", pixelBufferPool];
+    //NSString *poolID = [NSString stringWithFormat:@"%p", pixelBufferPool];
     
     // Registrar quem está chamando
     NSString *callerInfo = GetCallerInfo();
@@ -885,7 +886,7 @@ CVReturn replaced_CVPixelBufferPoolCreatePixelBuffer(
     // Obter propriedades do pool para verificar se é da câmera
     BOOL isCameraPool = NO;
     CFDictionaryRef poolAttrs = NULL;
-    CVPixelBufferPoolGetAttributes(pixelBufferPool, &poolAttrs);
+    poolAttrs = CVPixelBufferPoolGetAttributes(pixelBufferPool);
     if (poolAttrs) {
         NSDictionary *attrs = (__bridge NSDictionary *)poolAttrs;
         LOG_DEBUG(@"  Pool Attributes: %@", attrs);
@@ -944,7 +945,7 @@ IOSurfaceRef replaced_CVPixelBufferGetIOSurface(CVPixelBufferRef pixelBuffer) {
         NSString *callerInfo = GetCallerInfo();
         
         LOG_INFO(@"⚡️ CVPixelBufferGetIOSurface: Buffer %p -> IOSurface %p (ID: %u)",
-                pixelBuffer, surface, surfaceID);
+                 pixelBuffer, surface, surfaceID);
         
         // Descrever a IOSurface - CRUCIAL para entender o compartilhamento
         NSString *surfaceDesc = DescribeIOSurface(surface);
@@ -973,17 +974,17 @@ IOSurfaceRef replaced_CVPixelBufferGetIOSurface(CVPixelBufferRef pixelBuffer) {
 
 // CVPixelBufferCreateWithIOSurface - Criação de buffer a partir de IOSurface
 CVReturn replaced_CVPixelBufferCreateWithIOSurface(
-    CFAllocatorRef allocator,
-    IOSurfaceRef surface,
-    CFDictionaryRef pixelBufferAttributes,
-    CVPixelBufferRef *pixelBufferOut) {
+                                                   CFAllocatorRef allocator,
+                                                   IOSurfaceRef surface,
+                                                   CFDictionaryRef pixelBufferAttributes,
+                                                   CVPixelBufferRef *pixelBufferOut) {
     
     uint32_t surfaceID = IOSurfaceGetID(surface);
     NSString *callerInfo = GetCallerInfo();
     NSString *appInfo = GetCurrentAppInfo();
     
     LOG_INFO(@"⭐️ CVPixelBufferCreateWithIOSurface: Surface %p (ID: %u), App: %@",
-            surface, surfaceID, appInfo);
+             surface, surfaceID, appInfo);
     LOG_INFO(@"  Chamador: %@", callerInfo);
     
     // Descrever a IOSurface
@@ -1045,16 +1046,22 @@ CVReturn replaced_CVPixelBufferCreateWithIOSurface(
 
 #pragma mark - Callback para IOKit
 
-static void IOServiceInterestCallback(void *refCon, io_service_t service, uint32_t messageType, void *messageArgument) {
-    // Esta função é chamada quando há atividade em um serviço IOKit monitorado
+static void MyIOServiceInterestCallback(void *refCon, io_service_t service, uint32_t messageType, void *messageArgument) {
     LowLevelCameraInterceptor *interceptor = (__bridge LowLevelCameraInterceptor *)refCon;
+    // Use a variável interceptor aqui para evitar o aviso de não utilização
+    if (interceptor) {
+        // Faça algo com interceptor
+        LOG_DEBUG(@"Callback received for interceptor: %@", interceptor);
+    }
+    // Esta função é chamada quando há atividade em um serviço IOKit monitorado
+    //LowLevelCameraInterceptor *interceptor = (__bridge LowLevelCameraInterceptor *)refCon;
     
     NSString *serviceName = (__bridge_transfer NSString *)IORegistryEntryCreateCFProperty(
-        service, CFSTR("IONameMatch"), kCFAllocatorDefault, 0);
+                                                                                          service, CFSTR("IONameMatch"), kCFAllocatorDefault, 0);
     
     if (!serviceName) {
         serviceName = (__bridge_transfer NSString *)IORegistryEntryCreateCFProperty(
-            service, CFSTR("IOName"), kCFAllocatorDefault, 0);
+                                                                                    service, CFSTR("IOName"), kCFAllocatorDefault, 0);
     }
     
     if (!serviceName) {
@@ -1192,10 +1199,10 @@ static NSString *PixelBufferDetailedDescription(CVPixelBufferRef pixelBuffer) {
         
         for (size_t i = 0; i < planeCount; i++) {
             [desc appendFormat:@"\n    Plane %zu: %zux%zu, bytesPerRow:%zu",
-                i,
-                CVPixelBufferGetWidthOfPlane(pixelBuffer, i),
-                CVPixelBufferGetHeightOfPlane(pixelBuffer, i),
-                CVPixelBufferGetBytesPerRowOfPlane(pixelBuffer, i)];
+             i,
+             CVPixelBufferGetWidthOfPlane(pixelBuffer, i),
+             CVPixelBufferGetHeightOfPlane(pixelBuffer, i),
+             CVPixelBufferGetBytesPerRowOfPlane(pixelBuffer, i)];
         }
     }
     
@@ -1349,7 +1356,7 @@ static void SaveBufferSample(CVPixelBufferRef pixelBuffer, NSString *context) {
                     NSString *metadataPath = [filePath stringByReplacingOccurrencesOfString:@".png" withString:@"_metadata.json"];
                     NSMutableDictionary *metadata = [NSMutableDictionary dictionary];
                     metadata[@"timestamp"] = timestamp;
-                    metadata[@"context"] = context;
+                    metadata[@"context"] = (__bridge id)context;
                     metadata[@"appInfo"] = appInfo;
                     metadata[@"width"] = @(width);
                     metadata[@"height"] = @(height);
@@ -1375,8 +1382,8 @@ static void SaveBufferSample(CVPixelBufferRef pixelBuffer, NSString *context) {
                     // Salvar metadados
                     NSError *jsonError;
                     NSData *jsonData = [NSJSONSerialization dataWithJSONObject:metadata
-                                                                      options:NSJSONWritingPrettyPrinted
-                                                                        error:&jsonError];
+                                                                       options:NSJSONWritingPrettyPrinted
+                                                                         error:&jsonError];
                     if (jsonData && !jsonError) {
                         [jsonData writeToFile:metadataPath atomically:YES];
                     }
@@ -1416,7 +1423,7 @@ static void AnalyzePixelBufferContent(CVPixelBufferRef pixelBuffer, NSString *co
         size_t bytesPerRow = CVPixelBufferGetBytesPerRow(pixelBuffer);
         
         LOG_INFO(@"🔍 Análise de conteúdo de buffer %p (%@): %zux%zu, formato: %d",
-                pixelBuffer, context, width, height, pixelFormat);
+                 pixelBuffer, context, width, height, pixelFormat);
         
         // Verificar se é um formato RGB que podemos analisar facilmente
         if (pixelFormat == kCVPixelFormatType_32BGRA ||
@@ -1428,7 +1435,7 @@ static void AnalyzePixelBufferContent(CVPixelBufferRef pixelBuffer, NSString *co
             int sampleStep = MAX(1, (int)(width * height / 1000)); // ~1000 amostras
             
             double sumBrightness = 0;
-            double sumVariance = 0;
+            //double sumVariance = 0;
             int edgeCount = 0;
             int sampleCount = 0;
             
@@ -1437,17 +1444,17 @@ static void AnalyzePixelBufferContent(CVPixelBufferRef pixelBuffer, NSString *co
                     size_t offset = y * bytesPerRow + x * 4;
                     
                     // Obter valores RGB (ordem depende do formato)
-                    uint8_t b, g, r, a;
+                    uint8_t b, g, r;
                     if (pixelFormat == kCVPixelFormatType_32BGRA) {
                         b = baseAddress[offset];
                         g = baseAddress[offset + 1];
                         r = baseAddress[offset + 2];
-                        a = baseAddress[offset + 3];
+                        //a = baseAddress[offset + 3];
                     } else { // RGBA
                         r = baseAddress[offset];
                         g = baseAddress[offset + 1];
                         b = baseAddress[offset + 2];
-                        a = baseAddress[offset + 3];
+                        //a = baseAddress[offset + 3];
                     }
                     
                     // Calcular brilho
@@ -1485,7 +1492,7 @@ static void AnalyzePixelBufferContent(CVPixelBufferRef pixelBuffer, NSString *co
             double edgeDensity = (double)edgeCount / sampleCount;
             
             LOG_INFO(@"  Estatísticas: Brilho médio=%.3f, Densidade de bordas=%.3f",
-                    avgBrightness, edgeDensity);
+                     avgBrightness, edgeDensity);
             
             // Análise heurística
             BOOL possibleCameraInput = NO;
@@ -1505,7 +1512,7 @@ static void AnalyzePixelBufferContent(CVPixelBufferRef pixelBuffer, NSString *co
             
             if (possibleCameraInput) {
                 LOG_INFO(@"  ⚠️ O conteúdo parece ser de uma câmera real: %@",
-                        [reasons componentsJoinedByString:@", "]);
+                         [reasons componentsJoinedByString:@", "]);
             } else {
                 LOG_INFO(@"  O conteúdo não tem características típicas de câmera.");
             }
@@ -1580,7 +1587,7 @@ static NSString *GetCurrentAppInfo() {
     NSBundle *mainBundle = [NSBundle mainBundle];
     NSString *bundleID = [mainBundle bundleIdentifier];
     NSString *appName = [mainBundle objectForInfoDictionaryKey:@"CFBundleDisplayName"] ?:
-                         [mainBundle objectForInfoDictionaryKey:@"CFBundleName"];
+    [mainBundle objectForInfoDictionaryKey:@"CFBundleName"];
     
     return [NSString stringWithFormat:@"%@-%@", appName ?: @"Unknown", bundleID ?: @"Unknown"];
 }
@@ -1621,6 +1628,8 @@ static NSString *GetCallerInfo() {
     
     return @"Unknown Caller";
 }
+
+@end
 
 #pragma mark - Private Frameworks Monitor
 
@@ -1795,7 +1804,7 @@ static NSMutableArray *_detectedClasses;
             LOG_INFO(@"🎯 Encontrado método crítico: %@ em %@", selectorName, className);
             
             // Criar um identificador único para este método
-            NSString *hookIdentifier = [NSString stringWithFormat:@"%@_%@", className, selectorName];
+            //NSString *hookIdentifier = [NSString stringWithFormat:@"%@_%@", className, selectorName];
             
             // Preparar hook dinamicamente
             // Nota: Este é um código conceitual. A implementação real do hook

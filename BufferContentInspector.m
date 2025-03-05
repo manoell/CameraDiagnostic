@@ -1,3 +1,6 @@
+#import <UIKit/UIKit.h>
+#import <CoreImage/CoreImage.h>
+#import <ImageIO/ImageIO.h>
 #import "BufferContentInspector.h"
 #import "logger.h"
 
@@ -170,7 +173,7 @@
         
         // Salvar metadados em JSON
         NSString *metadataPath = [self->_outputDirectory stringByAppendingPathComponent:[NSString stringWithFormat:@"%@_metadata.json", sampleID]];
-        NSData *jsonData = [NSJSONSerialization dataWithJSONObject:bufferInfo options:NSJSONWritingPretty error:nil];
+        NSData *jsonData = [NSJSONSerialization dataWithJSONObject:bufferInfo options:NSJSONWritingPrettyPrinted error:nil];
         [jsonData writeToFile:metadataPath atomically:YES];
         
         // Adicionar ao array de informações capturadas
@@ -315,9 +318,9 @@
         analysis[@"isSyntheticContent"] = @(isSynthetic);
         
         // 4. CRÍTICO: Verificar metadados específicos de câmera
-        CFDictionaryRef attachments = CMSampleBufferGetSampleAttachmentsArray(sampleBuffer, false);
-        if (attachments && CFArrayGetCount(attachments) > 0) {
-            CFDictionaryRef attachmentDict = (CFDictionaryRef)CFArrayGetValueAtIndex(attachments, 0);
+        CFArrayRef attachmentsArray = CMSampleBufferGetSampleAttachmentsArray(sampleBuffer, false);
+        if (attachmentsArray && CFArrayGetCount(attachmentsArray) > 0) {
+            CFDictionaryRef attachmentDict = (CFDictionaryRef)CFArrayGetValueAtIndex(attachmentsArray, 0);
             if (attachmentDict) {
                 NSDictionary *attachs = (__bridge NSDictionary *)attachmentDict;
                 
@@ -528,7 +531,7 @@
     
     for (size_t y = sampleStride; y < height - sampleStride; y += sampleStride) {
         for (size_t x = sampleStride; x < width - sampleStride; x += sampleStride) {
-            size_t pixelOffset = y * bytesPerRow + x * 4;
+            //size_t pixelOffset = y * bytesPerRow + x * 4;
             
             // Detecção simples de bordas (diferenças com pixels vizinhos)
             size_t leftOffset = y * bytesPerRow + (x - sampleStride) * 4;

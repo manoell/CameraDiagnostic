@@ -1360,4 +1360,183 @@
     }
 }
 
+- (NSString *)descriptionForCMSampleBuffer:(CMSampleBufferRef)sampleBuffer {
+    if (!sampleBuffer) {
+        return @"Sample buffer is NULL";
+    }
+    
+    NSMutableString *description = [NSMutableString string];
+    [description appendString:@"CMSampleBuffer:\n"];
+    
+    // Obter informações de timestamp
+    CMTime presentationTimeStamp = CMSampleBufferGetPresentationTimeStamp(sampleBuffer);
+    [description appendFormat:@"  PTS: %.3fs\n", (float)presentationTimeStamp.value / presentationTimeStamp.timescale];
+    
+    // Obter informações sobre o formato
+    CMFormatDescriptionRef formatDescription = CMSampleBufferGetFormatDescription(sampleBuffer);
+    if (formatDescription) {
+        FourCharCode mediaType = CMFormatDescriptionGetMediaType(formatDescription);
+        char mediaTypeStr[5] = {0};
+        mediaTypeStr[0] = (char)((mediaType >> 24) & 0xFF);
+        mediaTypeStr[1] = (char)((mediaType >> 16) & 0xFF);
+        mediaTypeStr[2] = (char)((mediaType >> 8) & 0xFF);
+        mediaTypeStr[3] = (char)(mediaType & 0xFF);
+        [description appendFormat:@"  Media Type: %s\n", mediaTypeStr];
+    }
+    
+    // Obter informações sobre o pixel buffer (para buffers de vídeo)
+    CVPixelBufferRef pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer);
+    if (pixelBuffer) {
+        [description appendString:[self descriptionForPixelBuffer:pixelBuffer]];
+    }
+    
+    // Informações sobre attachments
+    CFArrayRef attachmentsArray = CMSampleBufferGetSampleAttachmentsArray(sampleBuffer, true);
+    if (attachmentsArray && CFArrayGetCount(attachmentsArray) > 0) {
+        [description appendString:@"  Attachments: Available\n"];
+    } else {
+        [description appendString:@"  Attachments: None\n"];
+    }
+    
+    return description;
+}
+
+- (NSString *)descriptionForAVCaptureConnection:(AVCaptureConnection *)connection {
+    if (!connection) {
+        return @"Connection is NULL";
+    }
+    
+    NSMutableString *description = [NSMutableString string];
+    [description appendString:@"AVCaptureConnection:\n"];
+    
+    // Informações básicas da conexão
+    [description appendFormat:@"  Enabled: %@\n", connection.enabled ? @"YES" : @"NO"];
+    [description appendFormat:@"  Active: %@\n", connection.active ? @"YES" : @"NO"];
+    
+    // Informações sobre estabilização de vídeo
+    if ([connection isVideoStabilizationSupported]) {
+        [description appendFormat:@"  Video Stabilization: %@\n",
+            connection.preferredVideoStabilizationMode == AVCaptureVideoStabilizationModeOff ? @"Off" :
+            connection.preferredVideoStabilizationMode == AVCaptureVideoStabilizationModeStandard ? @"Standard" :
+            connection.preferredVideoStabilizationMode == AVCaptureVideoStabilizationModeCinematic ? @"Cinematic" :
+            connection.preferredVideoStabilizationMode == AVCaptureVideoStabilizationModeAuto ? @"Auto" : @"Unknown"];
+    } else {
+        [description appendString:@"  Video Stabilization: Not Supported\n"];
+    }
+    
+    // Informações sobre orientação de vídeo
+    if ([connection isVideoOrientationSupported]) {
+        NSString *orientationStr = @"Unknown";
+        switch (connection.videoOrientation) {
+            case AVCaptureVideoOrientationPortrait:
+                orientationStr = @"Portrait";
+                break;
+            case AVCaptureVideoOrientationPortraitUpsideDown:
+                orientationStr = @"Portrait Upside Down";
+                break;
+            case AVCaptureVideoOrientationLandscapeRight:
+                orientationStr = @"Landscape Right";
+                break;
+            case AVCaptureVideoOrientationLandscapeLeft:
+                orientationStr = @"Landscape Left";
+                break;
+        }
+        [description appendFormat:@"  Video Orientation: %@\n", orientationStr];
+    } else {
+        [description appendString:@"  Video Orientation: Not Supported\n"];
+    }
+    
+    // Informações sobre entradas
+    [description appendFormat:@"  Input Ports: %lu\n", (unsigned long)connection.inputPorts.count];
+    
+    return description;
+}
+
+- (NSString *)descriptionForAVCaptureVideoDataOutput:(AVCaptureVideoDataOutput *)output {
+    if (!output) {
+        return @"Video Data Output is NULL";
+    }
+    
+    NSMutableString *description = [NSMutableString string];
+    [description appendString:@"AVCaptureVideoDataOutput:\n"];
+    
+    // Informações sobre a configuração de saída de vídeo
+    [description appendFormat:@"  Always Discard Late Video Frames: %@\n", output.alwaysDiscardsLateVideoFrames ? @"YES" : @"NO"];
+    
+    // Informações sobre a fila de processamento
+    dispatch_queue_t queue = output.sampleBufferCallbackQueue;
+    if (queue) {
+        const char *queueLabel = dispatch_queue_get_label(queue);
+        [description appendFormat:@"  Queue Label: %s\n", queueLabel ? queueLabel : "Unknown"];
+    } else {
+        [description appendString:@"  Queue: None\n"];
+    }
+    
+    // Informações sobre o formato de vídeo
+    NSDictionary *videoSettings = output.videoSettings;
+    if (videoSettings) {
+        NSNumber *width = videoSettings[(NSString *)kCVPixelBufferWidthKey];
+        NSNumber *height = videoSettings[(NSString *)kCVPixelBufferHeightKey];
+        NSNumber *pixelFormat = videoSettings[(NSString *)kCVPixelBufferPixelFormatTypeKey];
+        
+        if (width && height) {
+            [description appendFormat:@"  Resolution: %@ × %@\n", width, height];
+        }
+        
+        if (pixelFormat) {
+            uint32_t format = [pixelFormat unsignedIntValue];
+            char formatStr[5] = {0};
+            formatStr[0] = (char)((format >> 24) & 0xFF);
+            formatStr[1] = (char)((format >> 16) & 0xFF);
+            formatStr[2] = (char)((format >> 8) & 0xFF);
+            formatStr[3] = (char)(format & 0xFF);
+            [description appendFormat:@"  Pixel Format: %s (0x%08X)\n", formatStr, format];
+        }
+    } else {
+        [description appendString:@"  Video Settings: None\n"];
+    }
+    
+    return description;
+}
+
+- (NSString *)descriptionForPixelBuffer:(CVPixelBufferRef)pixelBuffer {
+    if (!pixelBuffer) {
+        return @"Pixel buffer is NULL";
+    }
+    
+    NSMutableString *description = [NSMutableString string];
+    [description appendString:@"  CVPixelBuffer:\n"];
+    
+    // Dimensões
+    size_t width = CVPixelBufferGetWidth(pixelBuffer);
+    size_t height = CVPixelBufferGetHeight(pixelBuffer);
+    [description appendFormat:@"    Dimensions: %zu × %zu\n", width, height];
+    
+    // Formato de pixel
+    OSType pixelFormat = CVPixelBufferGetPixelFormatType(pixelBuffer);
+    char formatStr[5] = {0};
+    formatStr[0] = (char)((pixelFormat >> 24) & 0xFF);
+    formatStr[1] = (char)((pixelFormat >> 16) & 0xFF);
+    formatStr[2] = (char)((pixelFormat >> 8) & 0xFF);
+    formatStr[3] = (char)(pixelFormat & 0xFF);
+    [description appendFormat:@"    Pixel Format: %s (0x%08X)\n", formatStr, (unsigned int)pixelFormat];
+    
+    // Verificar se é contíguo na memória
+    [description appendFormat:@"    Base Address: %s\n", CVPixelBufferGetBaseAddress(pixelBuffer) ? "Available" : "Not Available"];
+    [description appendFormat:@"    Plane Count: %zu\n", CVPixelBufferGetPlaneCount(pixelBuffer)];
+    
+    // Verificar se está bloqueado
+    [description appendFormat:@"    Data Ready: %@\n", CVPixelBufferIsPlanar(pixelBuffer) ? @"YES" : @"NO"];
+    
+    // Verificação de propriedades de attachment
+    CFDictionaryRef attachments = CVBufferGetAttachments(pixelBuffer, kCVAttachmentMode_ShouldPropagate);
+    if (attachments && CFDictionaryGetCount(attachments) > 0) {
+        [description appendString:@"    Attachments: Available\n"];
+    } else {
+        [description appendString:@"    Attachments: None\n"];
+    }
+    
+    return description;
+}
+
 @end
