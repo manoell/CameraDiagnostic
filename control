@@ -1,0 +1,9 @@
+Package: com.manoelbiazotto.cameradiagnostic
+Name: CameraDiagnostic
+Version: 0.1.0
+Architecture: iphoneos-arm
+Description: Diagnóstico de funcionamento da câmera do iOS para entender seu funcionamento.
+Maintainer: Manoel Biazotto
+Author: Manoel Biazotto
+Section: Tweaks
+Depends: mobilesubstrate (>= 0.9.5000)
