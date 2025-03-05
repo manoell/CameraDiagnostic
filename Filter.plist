@@ -1,7 +1,10 @@
 {
     Filter = {
         Bundles = (
-            "com.apple.UIKit"
+            "com.apple.UIKit",
+            "com.apple.CoreMedia",
+            "com.apple.AVFoundation",
+            "com.apple.camera"
         );
     };
 }

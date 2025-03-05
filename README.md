@@ -1,81 +1,87 @@
-# CameraDiagnostic
+# Camera Diagnostic Tool
 
-## Visão Geral
+Uma ferramenta de diagnóstico para iOS (com jailbreak) que fornece informações detalhadas sobre o funcionamento da câmera, visando identificar os pontos ideais para substituição do feed de forma indetectável e universal.
 
-CameraDiagnostic é um tweak sofisticado para iOS projetado para fornecer informações diagnósticas completas sobre o sistema de câmera, enquanto permite capacidades avançadas de manipulação do feed da câmera. Esta ferramenta é particularmente útil para desenvolvedores, pesquisadores de segurança e entusiastas de privacidade que desejam entender ou modificar como os dados da câmera são processados em dispositivos iOS.
+## Objetivo
 
-## Recursos
+Esta ferramenta foi desenvolvida para:
 
-- **Análise Abrangente do Sistema de Câmera**: Coleta informações detalhadas sobre hardware da câmera, configurações e comportamento em tempo real
-- **Interceptação de Câmera em Baixo Nível**: Acessa e inspeciona dados da câmera em várias etapas do pipeline de processamento
-- **Inspeção de Conteúdo de Buffer**: Analisa dados de pixels dos frames da câmera para diagnósticos e processamento
-- **Substituição de Feed**: Substitui feeds da câmera por conteúdo alternativo de forma indetectável
-- **Registro Detalhado**: Sistema de log abrangente para rastrear atividade e comportamento da câmera
-
-## Componentes
-
-- **CameraDiagnosticFramework**: Framework principal que fornece capacidades de diagnóstico e extração de informações
-- **CameraBufferSubstitutionInterceptor**: Lida com a interceptação e substituição do conteúdo do buffer da câmera
-- **LowLevelCameraInterceptor**: Acesso e manipulação de dados de câmera em baixo nível
-- **BufferContentInspector**: Ferramentas para analisar e extrair informações de buffers de pixels
-- **CameraFeedSubstitutionSource**: Gerenciamento de fonte para substituição do feed da câmera
-
-## Requisitos
-
-- iOS 14.0 ou posterior
-- Dispositivo com jailbreak
-- Ambiente de desenvolvimento Theos
+1. Diagnosticar o pipeline completo da câmera do iOS
+2. Identificar os pontos exatos onde o feed da câmera pode ser substituído
+3. Determinar quais metadados e propriedades precisam ser preservados
+4. Detectar mecanismos de segurança que poderiam identificar a substituição
+5. Fornecer insights para implementação de uma solução universal que funcione em todos os aplicativos
 
 ## Instalação
 
-1. Clone o repositório:
-   ```bash
-   git clone https://github.com/seuusuario/CameraDiagnostic.git
-   cd CameraDiagnostic
-   ```
+1. Certifique-se de ter o ambiente Theos configurado corretamente
+2. Clone este repositório
+3. Execute `make package install` para compilar e instalar o tweak
+4. Reinicie o SpringBoard (`killall -9 SpringBoard`)
 
-2. Compile o tweak:
-   ```bash
-   make
-   ```
+## Como Usar
 
-3. Instale no dispositivo:
-   ```bash
-   make package install
-   ```
+1. Após a instalação, abra qualquer aplicativo que utilize a câmera
+2. Use o aplicativo normalmente para capturar informações diagnósticas
+3. Os logs são gravados no syslog do sistema
 
-## Uso
+## Visualização de Logs
 
-Após a instalação, o tweak será executado em segundo plano e interagirá com o sistema de câmera. Você pode:
+### Via SSH:
+```bash
+ssh root@[IP-DO-DISPOSITIVO]
+tail -f /var/log/syslog | grep CameraDiag
+```
 
-1. Visualizar informações de diagnóstico nos logs do sistema
-2. Usar as APIs incluídas para acessar dados da câmera em seus próprios aplicativos
-3. Configurar parâmetros de substituição de feed através das interfaces fornecidas
+### Via macOS:
+1. Conecte o dispositivo ao Mac via USB
+2. Abra o aplicativo Console (Aplicativos > Utilitários)
+3. Selecione seu dispositivo na barra lateral
+4. Filtre por "CameraDiag"
 
-## Notas para Desenvolvedores
+### Via dispositivo:
+- Use o NewTerm2 e execute o comando `tail -f /var/log/syslog | grep CameraDiag`
+- Ou use o Filza para navegar até `/var/log/syslog`
 
-O tweak interage com vários frameworks privados do iOS e usa APIs de baixo nível:
+## Interpretação dos Logs
 
-- AVFoundation para captura de câmera
-- CoreMedia e CoreVideo para processamento de mídia
-- IOKit e IOSurface para acesso de hardware de baixo nível
-- Frameworks privados MediaToolbox e CameraKit
+O tweak registra informações em pontos-chave do pipeline da câmera:
 
-Ao contribuir ou modificar, tenha cuidado com alterações nos pontos de interceptação e hook, pois eles são sensíveis a mudanças na versão do iOS.
+### Pontos de Interesse:
 
-## Considerações de Privacidade e Legais
+- **Inicialização da câmera**: Logs com "AVCaptureSession" mostram quando uma sessão é criada
+- **Classes manipuladoras**: "New buffer handler class detected" identifica classes que processam dados da câmera
+- **Formatos de buffer**: "Buffer format" mostra detalhes técnicos dos buffers de imagem
+- **Caminho de renderização**: "Camera content being set to layer" indica quando o conteúdo chega à UI
+- **Verificações de segurança**: "Security check" detecta verificações que podem identificar substituições
 
-Esta ferramenta é destinada para pesquisa legítima, desenvolvimento e casos de uso de privacidade pessoal. Sempre:
+### Informações Cruciais:
 
-1. Respeite as leis e regulamentos de privacidade em sua jurisdição
-2. Obtenha o consentimento adequado ao usar em ambientes onde outros possam ser afetados
-3. Use de forma responsável e ética
+Preste atenção especial a:
 
-## Licença
+1. **Sequência de chamadas**: A ordem em que os componentes são inicializados
+2. **Metadados preservados**: Propriedades que precisam ser replicadas na substituição
+3. **Caminho comum**: Pontos do pipeline presentes em todos os aplicativos
+4. **Verificações específicas**: Mecanismos que aplicativos usam para validar a autenticidade
 
-[Escolha uma licença apropriada para seu projeto, como MIT, GPL, etc.]
+## Como Funciona
 
-## Agradecimentos
+O tweak utiliza o Cydia Substrate para interceptar chamadas relacionadas à câmera em vários níveis:
 
-- Agradecimentos à comunidade de jailbreak e pesquisa de iOS por suas valiosas contribuições sobre sistemas de câmera do iOS
-- Agradecimento à equipe de desenvolvimento Theos por seu excelente kit de ferramentas de desenvolvimento para iOS
+1. **AVFoundation**: Intercepta APIs de alto nível para configuração de câmera
+2. **CoreMedia/CoreVideo**: Monitora a manipulação de buffers de imagem
+3. **Apresentação de UI**: Acompanha como os dados da câmera são renderizados na tela
+4. **Segurança**: Detecta verificações que poderiam identificar uma substituição
+
+## Próximos Passos
+
+Após coletar informações suficientes:
+
+1. Identifique o ponto ideal para interceptação (geralmente em `captureOutput:didOutputSampleBuffer:fromConnection:`)
+2. Determine os metadados e propriedades que precisam ser preservados
+3. Desenvolva um método para substituir os dados do buffer mantendo as propriedades originais
+4. Implemente verificações para evitar detecção por apps específicos
+
+## Aviso Legal
+
+Esta ferramenta é desenvolvida apenas para fins educacionais e de pesquisa. Utilize-a de acordo com as leis e regulamentos locais.

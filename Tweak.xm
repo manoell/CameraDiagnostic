@@ -1,347 +1,378 @@
-#include <execinfo.h>
-#include <objc/message.h>
-#include <objc/runtime.h>
-#include <substrate.h>
 #import <Foundation/Foundation.h>
+#import <UIKit/UIKit.h>
 #import <AVFoundation/AVFoundation.h>
 #import <CoreMedia/CoreMedia.h>
-#import <UIKit/UIKit.h>
-#import "logger.h"
-#import "LowLevelCameraInterceptor.h"
-#import "CameraDiagnosticFramework.h"
-#import "BufferContentInspector.h"
-#import "CameraBufferSubstitutionInterceptor.h"
-#import "CameraFeedSubstitutionSource.h"
+#import <CoreVideo/CoreVideo.h>
+#import <QuartzCore/QuartzCore.h>
+#import <objc/runtime.h>
+#import <mach/mach_time.h>
 
-// Logger global
-static Logger *logger;
+// Forward declarations
+static void analyzeBuffer(CMSampleBufferRef buffer, NSString *source);
+static void logPixelBuffer(CVPixelBufferRef pixelBuffer, NSString *context);
+static void logAttachments(CMSampleBufferRef sampleBuffer);
 
-// Controle de diagnóstico
-static BOOL hasCompletedInitialSetup = NO;
-static NSLock *diagnosticLock;
-static NSDate *startTime;
+#pragma mark - AVCaptureSession Hooks
 
-// Estruturas para armazenar resultados de diagnóstico
-static NSMutableDictionary *diagnosticResults;
+%hook AVCaptureSession
 
-// Forward declarations para métodos originais que serão hooked
-static id (*original_AVCaptureDeviceInput_initWithDevice)(id self, SEL _cmd, AVCaptureDevice *device, NSError **outError);
-static void (*original_AVCaptureVideoDataOutput_setSampleBufferDelegate)(id self, SEL _cmd, id<AVCaptureVideoDataOutputSampleBufferDelegate> sampleBufferDelegate, dispatch_queue_t sampleBufferCallbackQueue);
+// Track when camera sessions are created and started
+- (id)init {
+    id session = %orig;
+    NSLog(@"[CameraDiag] AVCaptureSession initialized: %p", session);
+    return session;
+}
 
-// Métodos para substituir os originais
-static id overridden_AVCaptureDeviceInput_initWithDevice(id self, SEL _cmd, AVCaptureDevice *device, NSError **outError) {
-    // Chama o método original primeiro
-    id result = original_AVCaptureDeviceInput_initWithDevice(self, _cmd, device, outError);
+- (void)startRunning {
+    NSLog(@"[CameraDiag] AVCaptureSession starting: %p", self);
     
-    if (result) {
-        LOG_INFO(@"⭐️ AVCaptureDeviceInput inicializado para dispositivo: %@ (posição: %ld)",
-                device.localizedName, (long)device.position);
-        
-        // Registrar no dicionário de diagnóstico
-        @synchronized(diagnosticResults) {
-            NSMutableArray *devices = diagnosticResults[@"captureDevices"];
-            if (!devices) {
-                devices = [NSMutableArray array];
-                diagnosticResults[@"captureDevices"] = devices;
-            }
+    // Log all inputs and their properties
+    NSArray *inputs = [self inputs];
+    NSLog(@"[CameraDiag] Session has %lu inputs", (unsigned long)[inputs count]);
+    for (AVCaptureInput *input in inputs) {
+        if ([input isKindOfClass:%c(AVCaptureDeviceInput)]) {
+            AVCaptureDeviceInput *deviceInput = (AVCaptureDeviceInput *)input;
+            AVCaptureDevice *device = [deviceInput device];
+            NSLog(@"[CameraDiag] Camera device: %@, position: %ld, uniqueID: %@, modelID: %@",
+                  [device localizedName],
+                  (long)[device position],
+                  [device uniqueID],
+                  [device modelID]);
             
-            [devices addObject:@{
-                @"deviceName": device.localizedName,
-                @"position": @(device.position),
-                @"uniqueID": device.uniqueID,
-                @"modelID": device.modelID
-            }];
+            // Log device format (crucial for matching in substitution)
+            AVCaptureDeviceFormat *format = [device activeFormat];
+            CMFormatDescriptionRef formatDescription = [format formatDescription];
+            FourCharCode mediaSubType = CMFormatDescriptionGetMediaSubType(formatDescription);
+            NSLog(@"[CameraDiag] Device format: dimensions=%@, mediaSubType=%c%c%c%c, max framerate=%f",
+                  CMVideoFormatDescriptionGetDimensions(formatDescription).width ?
+                  [NSString stringWithFormat:@"%dx%d",
+                   CMVideoFormatDescriptionGetDimensions(formatDescription).width,
+                   CMVideoFormatDescriptionGetDimensions(formatDescription).height] : @"unknown",
+                  (char)((mediaSubType >> 24) & 0xFF),
+                  (char)((mediaSubType >> 16) & 0xFF),
+                  (char)((mediaSubType >> 8) & 0xFF),
+                  (char)(mediaSubType & 0xFF),
+                  [[format videoSupportedFrameRateRanges][0] maxFrameRate]);
         }
     }
     
+    // Log all outputs and their properties
+    NSArray *outputs = [self outputs];
+    NSLog(@"[CameraDiag] Session has %lu outputs", (unsigned long)[outputs count]);
+    for (AVCaptureOutput *output in outputs) {
+        NSLog(@"[CameraDiag] Output: %@", [output class]);
+        
+        if ([output isKindOfClass:%c(AVCaptureVideoDataOutput)]) {
+            AVCaptureVideoDataOutput *videoOutput = (AVCaptureVideoDataOutput *)output;
+            NSLog(@"[CameraDiag] Video output settings: %@", [videoOutput videoSettings]);
+            NSLog(@"[CameraDiag] Video output delegate: %@", [videoOutput sampleBufferDelegate]);
+        }
+        else if ([output isKindOfClass:%c(AVCapturePhotoOutput)]) {
+            AVCapturePhotoOutput *photoOutput = (AVCapturePhotoOutput *)output;
+            NSLog(@"[CameraDiag] Photo output supported formats: %@", [photoOutput availablePhotoCodecTypes]);
+        }
+    }
+    
+    // Log connections - available on iOS 13+, so we check availability first
+    if (@available(iOS 13.0, *)) {
+        NSArray *connections = [self connections];
+        NSLog(@"[CameraDiag] Session has %lu connections", (unsigned long)[connections count]);
+        for (AVCaptureConnection *connection in connections) {
+            NSLog(@"[CameraDiag] Connection: input ports=%@, output=%@, enabled=%d",
+                  [connection inputPorts],
+                  [connection output],
+                  [connection isEnabled]);
+        }
+    }
+    
+    %orig;
+    NSLog(@"[CameraDiag] AVCaptureSession started: %p", self);
+}
+
+- (void)stopRunning {
+    NSLog(@"[CameraDiag] AVCaptureSession stopping: %p", self);
+    %orig;
+}
+
+- (void)addInput:(AVCaptureInput *)input {
+    NSLog(@"[CameraDiag] Adding input to session: %@", input);
+    %orig;
+}
+
+- (void)addOutput:(AVCaptureOutput *)output {
+    NSLog(@"[CameraDiag] Adding output to session: %@", output);
+    %orig;
+}
+
+%end
+
+#pragma mark - Output Delegate Hooks
+
+%hook AVCaptureVideoDataOutput
+
+// Track when delegates are set up to receive camera frames
+- (void)setSampleBufferDelegate:(id<AVCaptureVideoDataOutputSampleBufferDelegate>)sampleBufferDelegate queue:(dispatch_queue_t)sampleBufferCallbackQueue {
+    NSLog(@"[CameraDiag] Setting video buffer delegate: %@ on queue: %@",
+          [sampleBufferDelegate class], sampleBufferCallbackQueue);
+    %orig;
+}
+
+%end
+
+%hook AVCapturePhotoOutput
+
+// Track photo capture process
+- (void)capturePhotoWithSettings:(AVCapturePhotoSettings *)settings delegate:(id<AVCapturePhotoCaptureDelegate>)delegate {
+    NSLog(@"[CameraDiag] Capturing photo with settings: %@, delegate: %@", settings, [delegate class]);
+    %orig;
+}
+
+%end
+
+#pragma mark - Buffer Processing Hooks
+
+%hook NSObject
+
+// This is where we intercept the camera frames as they're delivered to apps
+- (void)captureOutput:(AVCaptureOutput *)output didOutputSampleBuffer:(CMSampleBufferRef)sampleBuffer fromConnection:(AVCaptureConnection *)connection {
+    if ([self respondsToSelector:@selector(captureOutput:didOutputSampleBuffer:fromConnection:)]) {
+        NSString *className = NSStringFromClass([self class]);
+        
+        // Track the first time we see a new class handling camera frames
+        static NSMutableSet *seenClasses = nil;
+        static dispatch_once_t onceToken;
+        dispatch_once(&onceToken, ^{
+            seenClasses = [NSMutableSet new];
+        });
+        
+        if (![seenClasses containsObject:className]) {
+            [seenClasses addObject:className];
+            NSLog(@"[CameraDiag] New buffer handler class detected: %@", className);
+            NSLog(@"[CameraDiag] Class hierarchy: %@", NSStringFromClass([self superclass]));
+            
+            // Log stack trace to understand calling context
+            NSArray *callStack = [NSThread callStackSymbols];
+            NSLog(@"[CameraDiag] First-time handler stack trace: %@",
+                  [callStack componentsJoinedByString:@"\n"]);
+        }
+        
+        // Analyze the buffer structure
+        analyzeBuffer(sampleBuffer, className);
+    }
+    
+    %orig;
+}
+
+// Track image data after it's been processed for photo capture
+- (void)captureOutput:(AVCapturePhotoOutput *)output didFinishProcessingPhoto:(AVCapturePhoto *)photo error:(NSError *)error {
+    if ([self respondsToSelector:@selector(captureOutput:didFinishProcessingPhoto:error:)]) {
+        NSLog(@"[CameraDiag] Photo processed by: %@, data length: %lu",
+              [self class], (unsigned long)[[photo fileDataRepresentation] length]);
+    }
+    %orig;
+}
+
+%end
+
+#pragma mark - Buffer Copy and Manipulation Hooks
+
+// Hook low-level buffer copy operation to track buffer flow
+%hookf(OSStatus, CMSampleBufferCreateCopy, CFAllocatorRef allocator, CMSampleBufferRef sbuf, CMSampleBufferRef *sbufOut) {
+    OSStatus result = %orig;
+    if (result == noErr && sbufOut && *sbufOut) {
+        NSLog(@"[CameraDiag] Buffer copied: %p -> %p", sbuf, *sbufOut);
+    }
     return result;
 }
 
-static void overridden_AVCaptureVideoDataOutput_setSampleBufferDelegate(id self, SEL _cmd, id<AVCaptureVideoDataOutputSampleBufferDelegate> sampleBufferDelegate, dispatch_queue_t sampleBufferCallbackQueue) {
-    // Antes de chamar o método original
-    if (sampleBufferDelegate) {
-        LOG_INFO(@"⭐️ AVCaptureVideoDataOutput configurando delegate: %@ (%@)",
-                sampleBufferDelegate, [sampleBufferDelegate class]);
-        
-        // Registrar no dicionário de diagnóstico
-        @synchronized(diagnosticResults) {
-            NSMutableArray *delegates = diagnosticResults[@"bufferDelegates"];
-            if (!delegates) {
-                delegates = [NSMutableArray array];
-                diagnosticResults[@"bufferDelegates"] = delegates;
-            }
-            
-            NSString *delegateClass = NSStringFromClass([sampleBufferDelegate class]);
-            if (![delegates containsObject:delegateClass]) {
-                [delegates addObject:delegateClass];
-            }
-        }
+// Track pixel buffer creation to understand conversion process
+%hookf(CVReturn, CVPixelBufferCreate, CFAllocatorRef allocator, size_t width, size_t height, OSType pixelFormatType, CFDictionaryRef pixelBufferAttributes, CVPixelBufferRef *pixelBufferOut) {
+    CVReturn result = %orig;
+    if (result == kCVReturnSuccess && pixelBufferOut && *pixelBufferOut) {
+        NSLog(@"[CameraDiag] New CVPixelBuffer created: %p, %zux%zu, format=%c%c%c%c",
+              *pixelBufferOut, width, height,
+              (char)((pixelFormatType >> 24) & 0xFF),
+              (char)((pixelFormatType >> 16) & 0xFF),
+              (char)((pixelFormatType >> 8) & 0xFF),
+              (char)(pixelFormatType & 0xFF));
     }
-    
-    // Chama o método original
-    original_AVCaptureVideoDataOutput_setSampleBufferDelegate(self, _cmd, sampleBufferDelegate, sampleBufferCallbackQueue);
+    return result;
 }
 
-// Categoria para métodos auxiliares - DEVE SER ANTES do %ctor
-@interface NSObject (CameraDiagnosticHelper)
-+ (void)applicationDidBecomeActive:(NSNotification *)notification;
-+ (void)installEssentialHooks;
-+ (void)setupDiagnosticComponents;
-+ (void)generatePeriodicReport;
-@end
+// Track when buffers are locked for access (important for substitution)
+%hookf(CVReturn, CVPixelBufferLockBaseAddress, CVPixelBufferRef pixelBuffer, CVOptionFlags lockFlags) {
+    NSLog(@"[CameraDiag] CVPixelBufferLockBaseAddress: %p, flags: %lu",
+          pixelBuffer, (unsigned long)lockFlags);
+    return %orig;
+}
 
-@implementation NSObject (CameraDiagnosticHelper)
+#pragma mark - UI Presentation Hooks
 
-+ (void)applicationDidBecomeActive:(NSNotification *)notification {
-    NSString *appID = [[NSBundle mainBundle] bundleIdentifier];
-    LOG_INFO(@"📱 Aplicativo ativo: %@", appID);
+// Track when preview layers are set up
+%hook AVCaptureVideoPreviewLayer
+
+- (void)setSession:(AVCaptureSession *)session {
+    NSLog(@"[CameraDiag] Preview layer (%p) connected to session: %p", self, session);
+    %orig;
+}
+
+- (void)setVideoGravity:(AVLayerVideoGravity)videoGravity {
+    NSLog(@"[CameraDiag] Preview layer (%p) gravity set: %@", self, videoGravity);
+    %orig;
+}
+
+%end
+
+// Track where camera content is being displayed
+%hook CALayer
+
+- (void)setContents:(id)contents {
+    if (contents) {
+        Class contentsClass = object_getClass(contents);
+        NSString *className = NSStringFromClass(contentsClass);
+        
+        // Focus on camera-related content only
+        if ([className containsString:@"IOSurface"] ||
+            [className containsString:@"CVPixelBuffer"] ||
+            [className containsString:@"CMSampleBuffer"]) {
+            NSLog(@"[CameraDiag] Camera content being set to layer: %@, content class: %@",
+                  [self class], className);
+        }
+    }
+    %orig;
+}
+
+%end
+
+#pragma mark - Security Detection Hooks
+
+// Track when apps check for file existence (common in jailbreak detection)
+%hook NSFileManager
+
+- (BOOL)fileExistsAtPath:(NSString *)path {
+    BOOL result = %orig;
+    // Only log camera-related or jailbreak-detection-related checks
+    if ([path containsString:@"Camera"] ||
+        [path containsString:@"camera"] ||
+        [path containsString:@"AVCapture"] ||
+        [path containsString:@"/Applications/Cydia.app"] ||
+        [path containsString:@"/Library/MobileSubstrate"]) {
+        NSLog(@"[CameraDiag] Security check: fileExistsAtPath: %@, result: %d", path, result);
+    }
+    return result;
+}
+
+%end
+
+#pragma mark - Analysis Helper Functions
+
+// Analyze buffer contents and metadata
+static void analyzeBuffer(CMSampleBufferRef buffer, NSString *source) {
+    if (!buffer) return;
     
-    // Descartar notificações duplicadas
-    static NSString *lastActiveApp = nil;
-    if ([lastActiveApp isEqualToString:appID]) {
+    // Limit logging frequency to avoid overwhelming logs
+    static uint64_t lastBufferAnalysisTime = 0;
+    uint64_t currentTime = mach_absolute_time();
+    
+    // Only log once per second max
+    if (currentTime - lastBufferAnalysisTime < 1000000000) {
         return;
     }
-    lastActiveApp = [appID copy];
+    lastBufferAnalysisTime = currentTime;
     
-    @synchronized(diagnosticResults) {
-        NSMutableArray *activeApps = diagnosticResults[@"activeApps"];
-        if (!activeApps) {
-            activeApps = [NSMutableArray array];
-            diagnosticResults[@"activeApps"] = activeApps;
-        }
-        
-        if (![activeApps containsObject:appID]) {
-            [activeApps addObject:appID];
-        }
+    // Get timing information
+    CMTime presentationTime = CMSampleBufferGetPresentationTimeStamp(buffer);
+    CMTime duration = CMSampleBufferGetDuration(buffer);
+    Float64 timeInSeconds = CMTimeGetSeconds(presentationTime);
+    
+    // Log basic buffer info
+    NSLog(@"[CameraDiag] Buffer from %@: time=%.3fs, duration=%.4fs",
+          source, timeInSeconds, CMTimeGetSeconds(duration));
+    
+    // Analyze attachments and metadata
+    logAttachments(buffer);
+    
+    // Analyze pixel buffer
+    CVImageBufferRef imageBuffer = CMSampleBufferGetImageBuffer(buffer);
+    if (imageBuffer) {
+        logPixelBuffer(imageBuffer, [NSString stringWithFormat:@"Buffer from %@", source]);
     }
     
-    // Iniciar diagnóstico completo se ainda não foi feito
-    if (!hasCompletedInitialSetup) {
-        LOG_INFO(@"Inicializando componentes de diagnóstico...");
-        [self setupDiagnosticComponents];
-        hasCompletedInitialSetup = YES;
-    } else {
-        // Analisar o estado atual da câmera
-        LOG_INFO(@"Analisando estado da câmera no aplicativo atual...");
-        [[CameraDiagnosticFramework sharedInstance] analyzeActiveCaptureSessions];
-        [[CameraDiagnosticFramework sharedInstance] analyzeRenderPipeline];
-        [[CameraDiagnosticFramework sharedInstance] detectApplicationUsingCamera];
+    // Get format description
+    CMFormatDescriptionRef formatDesc = CMSampleBufferGetFormatDescription(buffer);
+    if (formatDesc) {
+        FourCharCode mediaSubType = CMFormatDescriptionGetMediaSubType(formatDesc);
+        NSLog(@"[CameraDiag] Buffer format: media type=%@, subtype=%c%c%c%c",
+              CMFormatDescriptionGetMediaType(formatDesc) == kCMMediaType_Video ? @"video" : @"other",
+              (char)((mediaSubType >> 24) & 0xFF),
+              (char)((mediaSubType >> 16) & 0xFF),
+              (char)((mediaSubType >> 8) & 0xFF),
+              (char)(mediaSubType & 0xFF));
+        
+        // Get dimensions for video
+        if (CMFormatDescriptionGetMediaType(formatDesc) == kCMMediaType_Video) {
+            CMVideoDimensions dimensions = CMVideoFormatDescriptionGetDimensions(formatDesc);
+            NSLog(@"[CameraDiag] Video dimensions: %dx%d", dimensions.width, dimensions.height);
+        }
     }
 }
 
-+ (void)installEssentialHooks {
-    LOG_INFO(@"Instalando hooks essenciais para diagnóstico...");
+// Analyze pixel buffer properties
+static void logPixelBuffer(CVPixelBufferRef pixelBuffer, NSString *context) {
+    if (!pixelBuffer) return;
     
-    // Hook em AVCaptureDeviceInput para capturar dispositivos de câmera
-    MSHookMessageEx(
-        objc_getClass("AVCaptureDeviceInput"),
-        @selector(initWithDevice:error:),
-        (IMP)&overridden_AVCaptureDeviceInput_initWithDevice,
-        (IMP*)&original_AVCaptureDeviceInput_initWithDevice
-    );
+    // Get basic properties
+    size_t width = CVPixelBufferGetWidth(pixelBuffer);
+    size_t height = CVPixelBufferGetHeight(pixelBuffer);
+    OSType pixelFormat = CVPixelBufferGetPixelFormatType(pixelBuffer);
+    size_t bytesPerRow = CVPixelBufferGetBytesPerRow(pixelBuffer);
+    size_t planeCount = CVPixelBufferGetPlaneCount(pixelBuffer);
     
-    // Hook em AVCaptureVideoDataOutput para capturar delegados de buffer
-    MSHookMessageEx(
-        objc_getClass("AVCaptureVideoDataOutput"),
-        @selector(setSampleBufferDelegate:queue:),
-        (IMP)&overridden_AVCaptureVideoDataOutput_setSampleBufferDelegate,
-        (IMP*)&original_AVCaptureVideoDataOutput_setSampleBufferDelegate
-    );
+    NSLog(@"[CameraDiag] %@: %zux%zu, format=%c%c%c%c, bytesPerRow=%zu, planes=%zu",
+          context, width, height,
+          (char)((pixelFormat >> 24) & 0xFF),
+          (char)((pixelFormat >> 16) & 0xFF),
+          (char)((pixelFormat >> 8) & 0xFF),
+          (char)(pixelFormat & 0xFF),
+          bytesPerRow, planeCount);
     
-    LOG_INFO(@"Hooks essenciais instalados com sucesso");
+    // Check if buffer is contiguous
+    Boolean isContiguous = CVPixelBufferIsPlanar(pixelBuffer) == 0;
+    NSLog(@"[CameraDiag] Pixel buffer is %@", isContiguous ? @"contiguous" : @"planar");
 }
 
-+ (void)setupDiagnosticComponents {
-    [diagnosticLock lock];
-    
-    LOG_INFO(@"Configurando componentes de diagnóstico...");
-    
-    // 1. Inicializar BufferContentInspector
-    BufferContentInspector *inspector = [BufferContentInspector sharedInstance];
-    inspector.captureEnabled = YES;
-    inspector.analyzeContent = YES;
-    inspector.captureInterval = 300; // Capturar 1 a cada 300 frames para reduzir volume
-    LOG_INFO(@"BufferContentInspector configurado");
-    
-    // 2. Inicializar CameraDiagnosticFramework
-    CameraDiagnosticFramework *framework = [CameraDiagnosticFramework sharedInstance];
-    [framework startDiagnosticWithLogLevel:CameraDiagnosticLogLevelInfo];
-    [framework setLogToFile:YES];
-    LOG_INFO(@"CameraDiagnosticFramework iniciado");
-    
-    // 3. Inicializar LowLevelCameraInterceptor
-    LowLevelCameraInterceptor *interceptor = [LowLevelCameraInterceptor sharedInstance];
-    [interceptor startMonitoring];
-    LOG_INFO(@"LowLevelCameraInterceptor iniciado");
-    
-    // 4. Configurar CameraBufferSubstitutionInterceptor (manter instalado mas não ativo)
-    CameraBufferSubstitutionInterceptor *substitutionInterceptor = [CameraBufferSubstitutionInterceptor sharedInterceptor];
-    [substitutionInterceptor installHooks]; // Instalamos os hooks para futura análise
-    substitutionInterceptor.interceptionStrategy = @"swizzle"; // Definir estratégia para análise futura
-    substitutionInterceptor.enabled = NO; // CRÍTICO: Manter desativado durante diagnóstico
-    substitutionInterceptor.substitutionSource = nil; // Garantir que não há fonte configurada
-    LOG_INFO(@"CameraBufferSubstitutionInterceptor configurado (hooks instalados mas substituição desativada)");
-    
-    // Analisar estado inicial
-    [framework dumpCameraConfiguration];
-    [framework analyzeActiveCaptureSessions];
-    [framework analyzeRenderPipeline];
-    
-    LOG_INFO(@"Todos os componentes de diagnóstico configurados e ativos");
-    
-    [diagnosticLock unlock];
-}
-
-+ (void)generatePeriodicReport {
-    static NSUInteger reportCounter = 0;
-    reportCounter++;
-    
-    LOG_INFO(@"Gerando relatório periódico de diagnóstico #%lu...", (unsigned long)reportCounter);
-    
-    NSString *documentsPath = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES).firstObject;
-    NSString *reportPath = [documentsPath stringByAppendingPathComponent:[NSString stringWithFormat:@"camera_diagnostic_report_%lu.txt", (unsigned long)reportCounter]];
-    
-    // Coletar dados dos diferentes componentes
-    NSMutableString *report = [NSMutableString string];
-    
-    [report appendString:@"====== RELATÓRIO DE DIAGNÓSTICO DE CÂMERA ======\n\n"];
-    [report appendFormat:@"Data/Hora: %@\n", [NSDate date]];
-    [report appendFormat:@"Aplicativo: %@\n", [[NSBundle mainBundle] bundleIdentifier]];
-    [report appendFormat:@"Duração do diagnóstico: %.1f segundos\n\n", [[NSDate date] timeIntervalSinceDate:startTime]];
-    
-    // Adicionar dados coletados
-    @synchronized(diagnosticResults) {
-        [report appendString:@"=== APLICATIVOS ANALISADOS ===\n"];
-        NSArray *activeApps = diagnosticResults[@"activeApps"];
-        for (NSString *app in activeApps) {
-            [report appendFormat:@"- %@\n", app];
-        }
-        
-        [report appendString:@"\n=== DISPOSITIVOS DE CÂMERA ===\n"];
-        NSArray *devices = diagnosticResults[@"captureDevices"];
-        for (NSDictionary *device in devices) {
-            [report appendFormat:@"- %@ (Posição: %@, ID: %@)\n",
-             device[@"deviceName"], device[@"position"], device[@"uniqueID"]];
-        }
-        
-        [report appendString:@"\n=== DELEGADOS DE BUFFER ===\n"];
-        NSArray *delegates = diagnosticResults[@"bufferDelegates"];
-        for (NSString *delegate in delegates) {
-            [report appendFormat:@"- %@\n", delegate];
+// Analyze buffer attachments and metadata
+static void logAttachments(CMSampleBufferRef sampleBuffer) {
+    // Get attachments if available
+    CFArrayRef attachmentsArray = CMSampleBufferGetSampleAttachmentsArray(sampleBuffer, FALSE);
+    if (attachmentsArray && CFArrayGetCount(attachmentsArray) > 0) {
+        CFDictionaryRef attachments = (CFDictionaryRef)CFArrayGetValueAtIndex(attachmentsArray, 0);
+        if (attachments) {
+            // Log generic information about attachments
+            NSLog(@"[CameraDiag] Buffer has %ld attachment keys", CFDictionaryGetCount(attachments));
+            
+            // Look for DependsOnOthers key
+            if (CFDictionaryContainsKey(attachments, kCMSampleAttachmentKey_DependsOnOthers)) {
+                CFBooleanRef value = (CFBooleanRef)CFDictionaryGetValue(attachments, kCMSampleAttachmentKey_DependsOnOthers);
+                NSLog(@"[CameraDiag] Buffer depends on others: %@", value == kCFBooleanTrue ? @"YES" : @"NO");
+            }
+            
+            // Look for NotSync key (indicates if frame is keyframe)
+            if (CFDictionaryContainsKey(attachments, kCMSampleAttachmentKey_NotSync)) {
+                CFBooleanRef value = (CFBooleanRef)CFDictionaryGetValue(attachments, kCMSampleAttachmentKey_NotSync);
+                NSLog(@"[CameraDiag] Buffer is key frame: %@", value == kCFBooleanFalse ? @"YES" : @"NO");
+            }
         }
     }
     
-    // Incluir relatório do BufferContentInspector
-    [report appendString:@"\n"];
-    [report appendString:[[BufferContentInspector sharedInstance] generateReport]];
-    
-    // Incluir pontos críticos identificados pelo LowLevelCameraInterceptor
-    [report appendString:@"\n=== PONTOS CRÍTICOS DE INTERCEPTAÇÃO ===\n"];
-    NSArray *interceptPoints = [[LowLevelCameraInterceptor sharedInstance] identifyKeyInterceptionPoints];
-    for (NSDictionary *point in interceptPoints) {
-        [report appendFormat:@"- %@\n", point[@"name"]];
-        [report appendFormat:@"  Tipo: %@\n", point[@"type"]];
-        [report appendFormat:@"  Razão: %@\n", point[@"reason"]];
-        [report appendFormat:@"  Confiança: %@\n", point[@"confidence"]];
-        [report appendFormat:@"  Notas: %@\n\n", point[@"notes"]];
-    }
-    
-    // Salvar relatório
-    NSError *error;
-    [report writeToFile:reportPath atomically:YES encoding:NSUTF8StringEncoding error:&error];
-    
-    if (error) {
-        LOG_ERROR(@"Erro ao salvar relatório: %@", error);
-    } else {
-        LOG_INFO(@"Relatório de diagnóstico salvo em: %@", reportPath);
-    }
-    
-    // Se for o último relatório (depois de um tempo significativo), finalize a análise
-    if (reportCounter >= 5) { // Após aproximadamente 5 minutos
-        LOG_INFO(@"⭐️⭐️⭐️ GERANDO RELATÓRIO FINAL COM CONCLUSÕES ⭐️⭐️⭐️");
-        
-        // Gerar relatórios finais de cada componente
-        [[CameraDiagnosticFramework sharedInstance] generateFinalReport];
-        [[LowLevelCameraInterceptor sharedInstance] generateFinalReport];
-        
-        // Combinar os relatórios e destacar os pontos mais prováveis
-        NSString *finalReportPath = [documentsPath stringByAppendingPathComponent:@"camera_substitution_conclusion.txt"];
-        NSMutableString *finalReport = [NSMutableString string];
-        
-        [finalReport appendString:@"====== CONCLUSÃO FINAL - SUBSTITUIÇÃO DO FEED DA CÂMERA ======\n\n"];
-        [finalReport appendString:@"Baseado na análise de múltiplos aplicativos e componentes, os pontos ideais para substituição universal são:\n\n"];
-        
-        // Seção 1: Top 3 APIs para hook
-        [finalReport appendString:@"1. APIS PARA HOOK (ORDEM DE PREFERÊNCIA):\n"];
-        [finalReport appendString:@"   a. CVPixelBufferCreateWithIOSurface - Ponto universal para substituição via IOSurface\n"];
-        [finalReport appendString:@"   b. CVPixelBufferPoolCreatePixelBuffer - Ponto central de criação via pool\n"];
-        [finalReport appendString:@"   c. Delegados AVCaptureVideoDataOutputSampleBufferDelegate - Interceptação por app\n\n"];
-        
-        // Seção 2: Estratégia recomendada
-        [finalReport appendString:@"2. ESTRATÉGIA RECOMENDADA:\n"];
-        [finalReport appendString:@"   - Implementar um hook em CVPixelBufferCreateWithIOSurface\n"];
-        [finalReport appendString:@"   - Identificar IOSurfaces usadas para câmera via seed/ID único\n"];
-        [finalReport appendString:@"   - Substituir o conteúdo com feed personalizado respeitando formato e timestamp\n"];
-        [finalReport appendString:@"   - Sempre preservar metadados e attachments originais\n\n"];
-        
-        // Salvar relatório final
-        [finalReport writeToFile:finalReportPath atomically:YES encoding:NSUTF8StringEncoding error:&error];
-        
-        LOG_INFO(@"Relatório final com conclusões salvo em: %@", finalReportPath);
-        
-        // Fase diagnóstica completa - as informações necessárias foram coletadas
-        // A fase de substituição será implementada em uma atualização futura
-        // baseada nos resultados da análise diagnóstica
-        LOG_INFO(@"Diagnóstico completo. Resultados prontos para análise manual.");
-        LOG_INFO(@"A substituição do feed deve ser implementada após análise dos relatórios.");
+    // Check for metadata attachments
+    CFTypeRef metadataAttachment = CMGetAttachment(sampleBuffer, CFSTR("MetadataDictionary"), NULL);
+    if (metadataAttachment) {
+        NSLog(@"[CameraDiag] Buffer has metadata attachment");
     }
 }
 
-@end
-
-// Inicialização do tweak - Depois da implementação da categoria
 %ctor {
-    @autoreleasepool {
-        startTime = [NSDate date];
-        
-        // Inicializa estruturas de controle
-        diagnosticLock = [[NSLock alloc] init];
-        diagnosticResults = [NSMutableDictionary dictionary];
-        
-        // Configura logger
-        NSString *documentsPath = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES).firstObject;
-        NSString *logPath = [documentsPath stringByAppendingPathComponent:@"camera_diagnostic.log"];
-        logger = [Logger sharedInstance];
-        [logger setLogFilePath:logPath];
-        
-        // Inicializa diagnóstico
-        LOG_INFO(@"====== INICIANDO DIAGNÓSTICO UNIVERSAL DE CÂMERA ======");
-        LOG_INFO(@"Data/Hora: %@", [NSDate date]);
-        LOG_INFO(@"Bundle: %@", [[NSBundle mainBundle] bundleIdentifier]);
-        LOG_INFO(@"Processo: %@", [NSProcessInfo processInfo].processName);
-        LOG_INFO(@"OS Version: %@", [UIDevice currentDevice].systemVersion);
-        LOG_INFO(@"Device: %@", [UIDevice currentDevice].model);
-        
-        // Registra notificações de ativação do app - bom momento para iniciar diagnóstico completo
-        [[NSNotificationCenter defaultCenter] addObserver:[NSObject class]
-                                                 selector:@selector(applicationDidBecomeActive:)
-                                                     name:UIApplicationDidBecomeActiveNotification
-                                                   object:nil];
-        
-        // Instalar hooks essenciais para capturar componentes iniciais
-        [NSObject installEssentialHooks];
-        
-        // Agendar inicialização completa com delay para garantir que o app esteja carregado
-        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-            [NSObject setupDiagnosticComponents];
-            hasCompletedInitialSetup = YES;
-        });
-        
-        // Agendar geração de relatório periódico
-        [NSTimer scheduledTimerWithTimeInterval:60.0
-                                         target:[NSObject class]
-                                       selector:@selector(generatePeriodicReport)
-                                       userInfo:nil
-                                        repeats:YES];
-    }
+    %init;
+    NSLog(@"[CameraDiag] **** Camera Diagnostic Tweak Initialized ****");
 }
