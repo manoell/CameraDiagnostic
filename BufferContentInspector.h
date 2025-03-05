@@ -5,7 +5,7 @@
 #import <CoreMedia/CoreMedia.h>
 #import <CoreVideo/CoreVideo.h>
 #import <ImageIO/ImageIO.h>
-#import <IOSurface/IOSurface.h>
+#import "IOSurface.h"
 
 /**
  * Classe utilitária para capturar e analisar o conteúdo dos buffers de vídeo

@@ -8,7 +8,7 @@
 #import <substrate.h>
 #import <CoreVideo/CoreVideo.h>
 #import <ImageIO/ImageIO.h>
-#import <IOSurface/IOSurface.h>
+#import "IOSurface.h"
 
 // Funções que serão interceptadas do CoreMedia/CoreVideo
 static CVPixelBufferRef (*original_CVPixelBufferGetBaseAddress)(CVPixelBufferRef pixelBuffer);

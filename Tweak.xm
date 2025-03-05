@@ -11,6 +11,7 @@
 #import "CameraDiagnosticFramework.h"
 #import "BufferContentInspector.h"
 #import "CameraBufferSubstitutionInterceptor.h"
+#import "CameraFeedSubstitutionSource.h"
 
 // Logger global
 static Logger *logger;
@@ -81,76 +82,7 @@ static void overridden_AVCaptureVideoDataOutput_setSampleBufferDelegate(id self,
     original_AVCaptureVideoDataOutput_setSampleBufferDelegate(self, _cmd, sampleBufferDelegate, sampleBufferCallbackQueue);
 }
 
-// Método para capturar chamadas ao delegate
-static void overridden_captureOutput_didOutputSampleBuffer(id self, SEL _cmd, AVCaptureOutput *output, CMSampleBufferRef sampleBuffer, AVCaptureConnection *connection) {
-    static uint64_t bufferCounter = 0;
-    bufferCounter++;
-    
-    // Log limitado para evitar sobrecarga
-    if (bufferCounter % 300 == 0) { // A cada 300 frames
-        LOG_INFO(@"💡 Buffer processado por %@ (%llu)", [self class], bufferCounter);
-        
-        // Analisar o buffer com o BufferContentInspector
-        [[BufferContentInspector sharedInstance] captureSampleFromBuffer:sampleBuffer
-                                                             withContext:NSStringFromClass([self class])];
-    }
-    
-    // Chamada do método original usando mensagem objetive-c
-    struct objc_super superInfo = {
-        self,
-        [self class]
-    };
-    ((void(*)(struct objc_super*, SEL, AVCaptureOutput*, CMSampleBufferRef, AVCaptureConnection*))objc_msgSendSuper)(&superInfo, _cmd, output, sampleBuffer, connection);
-}
-
-// Inicialização do tweak
-%ctor {
-    @autoreleasepool {
-        startTime = [NSDate date];
-        
-        // Inicializa estruturas de controle
-        diagnosticLock = [[NSLock alloc] init];
-        diagnosticResults = [NSMutableDictionary dictionary];
-        
-        // Configura logger
-        NSString *documentsPath = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES).firstObject;
-        NSString *logPath = [documentsPath stringByAppendingPathComponent:@"camera_diagnostic.log"];
-        logger = [Logger sharedInstance];
-        [logger setLogFilePath:logPath];
-        
-        // Inicializa diagnóstico
-        LOG_INFO(@"====== INICIANDO DIAGNÓSTICO UNIVERSAL DE CÂMERA ======");
-        LOG_INFO(@"Data/Hora: %@", [NSDate date]);
-        LOG_INFO(@"Bundle: %@", [[NSBundle mainBundle] bundleIdentifier]);
-        LOG_INFO(@"Processo: %@", [NSProcessInfo processInfo].processName);
-        LOG_INFO(@"OS Version: %@", [UIDevice currentDevice].systemVersion);
-        LOG_INFO(@"Device: %@", [UIDevice currentDevice].model);
-        
-        // Registra notificações de ativação do app - bom momento para iniciar diagnóstico completo
-        [[NSNotificationCenter defaultCenter] addObserver:[NSObject class]
-                                                 selector:@selector(applicationDidBecomeActive:)
-                                                     name:UIApplicationDidBecomeActiveNotification
-                                                   object:nil];
-        
-        // Instalar hooks essenciais para capturar componentes iniciais
-        [NSObject installEssentialHooks];
-        
-        // Agendar inicialização completa com delay para garantir que o app esteja carregado
-        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-            [NSObject setupDiagnosticComponents];
-            hasCompletedInitialSetup = YES;
-        });
-        
-        // Agendar geração de relatório periódico
-        [NSTimer scheduledTimerWithTimeInterval:60.0
-                                         target:[NSObject class]
-                                       selector:@selector(generatePeriodicReport)
-                                       userInfo:nil
-                                        repeats:YES];
-    }
-}
-
-// Categoria para métodos auxiliares
+// Categoria para métodos auxiliares - DEVE SER ANTES do %ctor
 @interface NSObject (CameraDiagnosticHelper)
 + (void)applicationDidBecomeActive:(NSNotification *)notification;
 + (void)installEssentialHooks;
@@ -242,10 +174,13 @@ static void overridden_captureOutput_didOutputSampleBuffer(id self, SEL _cmd, AV
     [interceptor startMonitoring];
     LOG_INFO(@"LowLevelCameraInterceptor iniciado");
     
-    // 4. Desativar CameraBufferSubstitutionInterceptor (apenas diagnóstico)
+    // 4. Configurar CameraBufferSubstitutionInterceptor (manter instalado mas não ativo)
     CameraBufferSubstitutionInterceptor *substitutionInterceptor = [CameraBufferSubstitutionInterceptor sharedInterceptor];
-    substitutionInterceptor.enabled = NO; // Desativado durante o diagnóstico
-    LOG_INFO(@"CameraBufferSubstitutionInterceptor desativado para fase de diagnóstico");
+    [substitutionInterceptor installHooks]; // Instalamos os hooks para futura análise
+    substitutionInterceptor.interceptionStrategy = @"swizzle"; // Definir estratégia para análise futura
+    substitutionInterceptor.enabled = NO; // CRÍTICO: Manter desativado durante diagnóstico
+    substitutionInterceptor.substitutionSource = nil; // Garantir que não há fonte configurada
+    LOG_INFO(@"CameraBufferSubstitutionInterceptor configurado (hooks instalados mas substituição desativada)");
     
     // Analisar estado inicial
     [framework dumpCameraConfiguration];
@@ -353,7 +288,60 @@ static void overridden_captureOutput_didOutputSampleBuffer(id self, SEL _cmd, AV
         [finalReport writeToFile:finalReportPath atomically:YES encoding:NSUTF8StringEncoding error:&error];
         
         LOG_INFO(@"Relatório final com conclusões salvo em: %@", finalReportPath);
+        
+        // Fase diagnóstica completa - as informações necessárias foram coletadas
+        // A fase de substituição será implementada em uma atualização futura
+        // baseada nos resultados da análise diagnóstica
+        LOG_INFO(@"Diagnóstico completo. Resultados prontos para análise manual.");
+        LOG_INFO(@"A substituição do feed deve ser implementada após análise dos relatórios.");
     }
 }
 
 @end
+
+// Inicialização do tweak - Depois da implementação da categoria
+%ctor {
+    @autoreleasepool {
+        startTime = [NSDate date];
+        
+        // Inicializa estruturas de controle
+        diagnosticLock = [[NSLock alloc] init];
+        diagnosticResults = [NSMutableDictionary dictionary];
+        
+        // Configura logger
+        NSString *documentsPath = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES).firstObject;
+        NSString *logPath = [documentsPath stringByAppendingPathComponent:@"camera_diagnostic.log"];
+        logger = [Logger sharedInstance];
+        [logger setLogFilePath:logPath];
+        
+        // Inicializa diagnóstico
+        LOG_INFO(@"====== INICIANDO DIAGNÓSTICO UNIVERSAL DE CÂMERA ======");
+        LOG_INFO(@"Data/Hora: %@", [NSDate date]);
+        LOG_INFO(@"Bundle: %@", [[NSBundle mainBundle] bundleIdentifier]);
+        LOG_INFO(@"Processo: %@", [NSProcessInfo processInfo].processName);
+        LOG_INFO(@"OS Version: %@", [UIDevice currentDevice].systemVersion);
+        LOG_INFO(@"Device: %@", [UIDevice currentDevice].model);
+        
+        // Registra notificações de ativação do app - bom momento para iniciar diagnóstico completo
+        [[NSNotificationCenter defaultCenter] addObserver:[NSObject class]
+                                                 selector:@selector(applicationDidBecomeActive:)
+                                                     name:UIApplicationDidBecomeActiveNotification
+                                                   object:nil];
+        
+        // Instalar hooks essenciais para capturar componentes iniciais
+        [NSObject installEssentialHooks];
+        
+        // Agendar inicialização completa com delay para garantir que o app esteja carregado
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+            [NSObject setupDiagnosticComponents];
+            hasCompletedInitialSetup = YES;
+        });
+        
+        // Agendar geração de relatório periódico
+        [NSTimer scheduledTimerWithTimeInterval:60.0
+                                         target:[NSObject class]
+                                       selector:@selector(generatePeriodicReport)
+                                       userInfo:nil
+                                        repeats:YES];
+    }
+}

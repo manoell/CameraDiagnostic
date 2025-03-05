@@ -10,11 +10,12 @@ CameraDiagnostic_FILES = Tweak.xm \
     CameraDiagnosticFramework.m \
     CameraFeedSubstitutionSource.m \
     BufferContentInspector.m \
+    LowLevelCameraInterceptor.m \
     logger.m
 
 CameraDiagnostic_CFLAGS = -fobjc-arc -Wno-deprecated-declarations
-CameraDiagnostic_FRAMEWORKS = UIKit AVFoundation CoreMedia
-CameraDiagnostic_PRIVATE_FRAMEWORKS = CameraKit MediaToolbox
-CameraDiagnostic_LIBRARIES = substrate
+CameraDiagnostic_FRAMEWORKS = UIKit AVFoundation CoreMedia CoreVideo ImageIO IOSurface IOKit
+CameraDiagnostic_PRIVATE_FRAMEWORKS = MediaToolbox CameraKit
+CameraDiagnostic_LIBRARIES = substrate iconv resolv
 
 include $(THEOS_MAKE_PATH)/tweak.mk

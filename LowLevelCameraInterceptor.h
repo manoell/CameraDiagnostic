@@ -3,7 +3,7 @@
 #import <Foundation/Foundation.h>
 #import <AVFoundation/AVFoundation.h>
 #import <CoreMedia/CoreMedia.h>
-#import <IOKit/IOKitLib.h>
+#import "IOKit.h"
 #import <CommonCrypto/CommonDigest.h>
 
 NS_ASSUME_NONNULL_BEGIN
