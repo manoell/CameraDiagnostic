@@ -1,5 +1,3 @@
-// BufferContentInspector.m
-
 #import "BufferContentInspector.h"
 #import "logger.h"
 
@@ -7,6 +5,8 @@
     NSMutableArray *_capturedBufferInfo;
     NSUInteger _bufferCounter;
     dispatch_queue_t _processingQueue;
+    NSMutableDictionary *_bufferFingerprints;  // Para detectar padrões recorrentes
+    NSMutableDictionary *_patternStats;        // Estatísticas de padrões
 }
 
 + (instancetype)sharedInstance {
@@ -23,9 +23,11 @@
     if (self) {
         _captureEnabled = YES;
         _analyzeContent = YES;
-        _captureInterval = 100; // Capturar 1 a cada 100 frames
-        _maxCapturedSamples = 50; // Máximo de amostras para não ocupar muito espaço
+        _captureInterval = 300; // Valor aumentado para reduzir volume de amostras
+        _maxCapturedSamples = 50;
         _capturedBufferInfo = [NSMutableArray array];
+        _bufferFingerprints = [NSMutableDictionary dictionary];
+        _patternStats = [NSMutableDictionary dictionary];
         _bufferCounter = 0;
         _processingQueue = dispatch_queue_create("com.camera.buffer.inspection", DISPATCH_QUEUE_SERIAL);
         
@@ -66,7 +68,7 @@
         
         // ID e timestamp
         NSString *timestamp = [NSString stringWithFormat:@"%lld", (long long)([[NSDate date] timeIntervalSince1970] * 1000)];
-        NSString *sampleID = [NSString stringWithFormat:@"sample_%llu_%@", (unsigned long long)_bufferCounter, timestamp];
+        NSString *sampleID = [NSString stringWithFormat:@"sample_%llu_%@", (unsigned long long)self->_bufferCounter, timestamp];
         bufferInfo[@"sampleID"] = sampleID;
         bufferInfo[@"timestamp"] = timestamp;
         bufferInfo[@"context"] = context ?: @"unknown";
@@ -92,10 +94,39 @@
             formatStr[3] = pixelFormat & 0xFF;
             bufferInfo[@"formatString"] = [NSString stringWithUTF8String:formatStr];
             
-            // Extrair uma imagem do buffer
-            NSString *imagePath = [self saveImageFromBuffer:imageBuffer withID:sampleID];
-            if (imagePath) {
-                bufferInfo[@"imagePath"] = imagePath;
+            // CRÍTICO: Verificar se tem IOSurface associada
+            IOSurfaceRef surface = CVPixelBufferGetIOSurface(imageBuffer);
+            if (surface) {
+                uint32_t surfaceID = IOSurfaceGetID(surface);
+                bufferInfo[@"hasIOSurface"] = @YES;
+                bufferInfo[@"IOSurfaceID"] = @(surfaceID);
+                
+                LOG_INFO(@"🔍 Buffer com IOSurface detectado! ID: %u, Contexto: %@", surfaceID, context);
+                
+                // Verificar propriedades da IOSurface - CRUCIAL para análise
+                NSDictionary *surfaceProps = (__bridge_transfer NSDictionary *)IOSurfaceCopyAllValues(surface);
+                if (surfaceProps) {
+                    bufferInfo[@"IOSurfaceProperties"] = surfaceProps;
+                    
+                    // Destacar propriedades relevantes da IOSurface
+                    for (NSString *key in surfaceProps) {
+                        if ([key containsString:@"Camera"] ||
+                            [key containsString:@"Video"] ||
+                            [key containsString:@"Capture"]) {
+                            LOG_INFO(@"⭐️ Propriedade IOSurface relevante: %@=%@", key, surfaceProps[key]);
+                        }
+                    }
+                }
+            } else {
+                bufferInfo[@"hasIOSurface"] = @NO;
+            }
+            
+            // Extrair uma imagem do buffer (frequência reduzida)
+            if (_bufferCounter % (_captureInterval * 3) == 0) {
+                NSString *imagePath = [self saveImageFromBuffer:imageBuffer withID:sampleID];
+                if (imagePath) {
+                    bufferInfo[@"imagePath"] = imagePath;
+                }
             }
             
             // Analisar conteúdo se habilitado
@@ -103,21 +134,72 @@
                 NSDictionary *contentAnalysis = [self analyzeBufferContent:sampleBuffer];
                 if (contentAnalysis) {
                     bufferInfo[@"analysis"] = contentAnalysis;
+                    
+                    // Verificar se é potencialmente de câmera real
+                    if ([contentAnalysis[@"isSyntheticContent"] boolValue] == NO &&
+                        [contentAnalysis[@"syntheticContentLikelihood"] floatValue] < 0.3) {
+                        LOG_INFO(@"🎯 Buffer parece ser de câmera real! Contexto: %@", context);
+                    }
+                }
+            }
+            
+            // Verificar se o buffer tem algum fingerprint conhecido
+            NSString *fingerprint = [self generateFingerprintForBuffer:imageBuffer];
+            if (fingerprint) {
+                bufferInfo[@"fingerprint"] = fingerprint;
+                
+                // Registrar estatísticas do padrão
+                NSNumber *count = _patternStats[fingerprint];
+                if (!count) count = @0;
+                _patternStats[fingerprint] = @([count integerValue] + 1);
+                
+                // Verificar se este padrão já foi visto anteriormente
+                NSString *existingContext = _bufferFingerprints[fingerprint];
+                if (existingContext) {
+                    bufferInfo[@"patternMatchedWith"] = existingContext;
+                    
+                    if (![existingContext isEqualToString:context]) {
+                        LOG_INFO(@"⚠️ Padrão recorrente detectado entre '%@' e '%@' - Possível pipeline compartilhado!",
+                                existingContext, context);
+                    }
+                } else {
+                    _bufferFingerprints[fingerprint] = context;
                 }
             }
         }
         
         // Salvar metadados em JSON
-        NSString *metadataPath = [_outputDirectory stringByAppendingPathComponent:[NSString stringWithFormat:@"%@_metadata.json", sampleID]];
+        NSString *metadataPath = [self->_outputDirectory stringByAppendingPathComponent:[NSString stringWithFormat:@"%@_metadata.json", sampleID]];
         NSData *jsonData = [NSJSONSerialization dataWithJSONObject:bufferInfo options:NSJSONWritingPretty error:nil];
         [jsonData writeToFile:metadataPath atomically:YES];
         
         // Adicionar ao array de informações capturadas
-        [_capturedBufferInfo addObject:bufferInfo];
-        _samplesSaved++;
+        [self->_capturedBufferInfo addObject:bufferInfo];
+        self->_samplesSaved++;
         
         LOG_INFO(@"📸 Capturada amostra de buffer: %@", sampleID);
     });
+}
+
+- (NSString *)generateFingerprintForBuffer:(CVImageBufferRef)imageBuffer {
+    if (!imageBuffer) return nil;
+    
+    // Criamos um fingerprint simplificado baseado em algumas características-chave do buffer
+    size_t width = CVPixelBufferGetWidth(imageBuffer);
+    size_t height = CVPixelBufferGetHeight(imageBuffer);
+    OSType format = CVPixelBufferGetPixelFormatType(imageBuffer);
+    size_t bytesPerRow = CVPixelBufferGetBytesPerRow(imageBuffer);
+    
+    // Verificar se tem IOSurface
+    IOSurfaceRef surface = CVPixelBufferGetIOSurface(imageBuffer);
+    uint32_t surfaceID = 0;
+    if (surface) {
+        surfaceID = IOSurfaceGetID(surface);
+    }
+    
+    // Simplificado: Apenas características básicas estruturais
+    return [NSString stringWithFormat:@"%zux%zu-%u-%zu-%u",
+            width, height, format, bytesPerRow, surfaceID];
 }
 
 - (NSString *)saveImageFromBuffer:(CVImageBufferRef)imageBuffer withID:(NSString *)sampleID {
@@ -138,7 +220,7 @@
         UIImage *image = nil;
         
         // Processar com base no formato
-        if (pixelFormat == kCVPixelFormatType_32BGRA || 
+        if (pixelFormat == kCVPixelFormatType_32BGRA ||
             pixelFormat == kCVPixelFormatType_32RGBA) {
             
             CGColorSpaceRef colorSpace = CGColorSpaceCreateDeviceRGB();
@@ -164,12 +246,9 @@
             }
             CGColorSpaceRelease(colorSpace);
         }
-        // Adicionar suporte para outros formatos comuns
+        // Formatos YUV
         else if (pixelFormat == kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange ||
                  pixelFormat == kCVPixelFormatType_420YpCbCr8BiPlanarFullRange) {
-            // Formatos YUV - precisa de conversão mais complexa
-            // Esta é uma abordagem simplificada que não trata corretamente cores YUV
-            // Em um ambiente de produção, use frameworks como GPUImage ou vImage
             
             // Criar um CIImage do buffer
             CIImage *ciImage = [CIImage imageWithCVPixelBuffer:imageBuffer];
@@ -235,6 +314,78 @@
         analysis[@"syntheticContentLikelihood"] = @(confidence);
         analysis[@"isSyntheticContent"] = @(isSynthetic);
         
+        // 4. CRÍTICO: Verificar metadados específicos de câmera
+        CFDictionaryRef attachments = CMSampleBufferGetSampleAttachmentsArray(sampleBuffer, false);
+        if (attachments && CFArrayGetCount(attachments) > 0) {
+            CFDictionaryRef attachmentDict = (CFDictionaryRef)CFArrayGetValueAtIndex(attachments, 0);
+            if (attachmentDict) {
+                NSDictionary *attachs = (__bridge NSDictionary *)attachmentDict;
+                
+                // Verificar atributos específicos de câmera
+                NSMutableDictionary *cameraAttachments = [NSMutableDictionary dictionary];
+                for (NSString *key in attachs) {
+                    if ([key containsString:@"Camera"] ||
+                        [key containsString:@"Video"] ||
+                        [key containsString:@"Capture"] ||
+                        [key containsString:@"Source"]) {
+                        
+                        cameraAttachments[key] = attachs[key];
+                        LOG_INFO(@"🔍 Attachment relevante detectado: %@ = %@", key, attachs[key]);
+                    }
+                }
+                
+                if (cameraAttachments.count > 0) {
+                    analysis[@"cameraMetadata"] = cameraAttachments;
+                }
+            }
+        }
+        
+        // 5. Verificar formato e descrição
+        CMFormatDescriptionRef formatDesc = CMSampleBufferGetFormatDescription(sampleBuffer);
+        if (formatDesc) {
+            // Obter extensões do formato
+            CFDictionaryRef extensions = CMFormatDescriptionGetExtensions(formatDesc);
+            if (extensions) {
+                NSDictionary *extDict = (__bridge NSDictionary *)extensions;
+                
+                // Filtrar extensões relevantes
+                NSMutableDictionary *relevantExtensions = [NSMutableDictionary dictionary];
+                for (NSString *key in extDict) {
+                    if ([key containsString:@"Camera"] ||
+                        [key containsString:@"Video"] ||
+                        [key containsString:@"Codec"] ||
+                        [key containsString:@"Surface"]) {
+                        
+                        relevantExtensions[key] = extDict[key];
+                        LOG_INFO(@"🔍 Extensão de formato relevante: %@ = %@", key, extDict[key]);
+                    }
+                }
+                
+                if (relevantExtensions.count > 0) {
+                    analysis[@"formatExtensions"] = relevantExtensions;
+                }
+            }
+            
+            // Obter tipo de mídia
+            CMMediaType mediaType = CMFormatDescriptionGetMediaType(formatDesc);
+            FourCharCode mediaSubType = CMFormatDescriptionGetMediaSubType(formatDesc);
+            
+            char mediaTypeStr[5] = {0};
+            mediaTypeStr[0] = (mediaType >> 24) & 0xFF;
+            mediaTypeStr[1] = (mediaType >> 16) & 0xFF;
+            mediaTypeStr[2] = (mediaType >> 8) & 0xFF;
+            mediaTypeStr[3] = mediaType & 0xFF;
+            
+            char mediaSubTypeStr[5] = {0};
+            mediaSubTypeStr[0] = (mediaSubType >> 24) & 0xFF;
+            mediaSubTypeStr[1] = (mediaSubType >> 16) & 0xFF;
+            mediaSubTypeStr[2] = (mediaSubType >> 8) & 0xFF;
+            mediaSubTypeStr[3] = mediaSubType & 0xFF;
+            
+            analysis[@"mediaType"] = [NSString stringWithUTF8String:mediaTypeStr];
+            analysis[@"mediaSubType"] = [NSString stringWithUTF8String:mediaSubTypeStr];
+        }
+        
         // Desbloquear buffer
         CVPixelBufferUnlockBaseAddress(imageBuffer, kCVPixelBufferLock_ReadOnly);
         
@@ -246,10 +397,9 @@
 }
 
 - (void)calculateBrightnessStats:(CVImageBufferRef)imageBuffer average:(float *)avgOut stdDev:(float *)stdDevOut {
-    // Implementação básica para BGRA
+    // Simplificação: somente BGRA para este exemplo
     OSType pixelFormat = CVPixelBufferGetPixelFormatType(imageBuffer);
     if (pixelFormat != kCVPixelFormatType_32BGRA) {
-        // Simplificando - apenas um formato suportado neste exemplo
         *avgOut = 0.0f;
         *stdDevOut = 0.0f;
         return;
@@ -260,8 +410,8 @@
     size_t bytesPerRow = CVPixelBufferGetBytesPerRow(imageBuffer);
     uint8_t *baseAddress = (uint8_t *)CVPixelBufferGetBaseAddress(imageBuffer);
     
-    // Amostrar pixels em grade esparsa (evita processar todos os pixels)
-    const size_t sampleStride = 16; // Analisa 1 a cada 16 pixels
+    // Amostragem mais esparsa para performance
+    const size_t sampleStride = 32; // Análise mais esparsa
     size_t sampleCount = 0;
     double sum = 0.0;
     double sumSq = 0.0;
@@ -287,9 +437,9 @@
     if (sampleCount > 0) {
         double mean = sum / sampleCount;
         double variance = (sumSq / sampleCount) - (mean * mean);
-        variance = MAX(0.0, variance); // Evitar erros de arredondamento
+        variance = MAX(0.0, variance);
         
-        *avgOut = (float)mean / 255.0f; // Normaliza para [0, 1]
+        *avgOut = (float)mean / 255.0f;
         *stdDevOut = (float)sqrt(variance) / 255.0f;
     } else {
         *avgOut = 0.0f;
@@ -298,7 +448,7 @@
 }
 
 - (BOOL)isLikelySyntheticContent:(CMSampleBufferRef)sampleBuffer confidence:(CGFloat *)confidenceOut {
-    // Esta é uma implementação simplificada para detectar se um frame 
+    // Esta é uma implementação simplificada para detectar se um frame
     // parece ser conteúdo sintético, como uma imagem estática
     
     // Inicializar output
@@ -307,8 +457,8 @@
     CVImageBufferRef imageBuffer = CMSampleBufferGetImageBuffer(sampleBuffer);
     if (!imageBuffer) return NO;
     
-    // Fatores que contribuem para a confiança (totalizando 1.0)
-    CGFloat stdDevWeight = 0.5f;  // Desvio padrão baixo = mais uniforme = mais sintético 
+    // Fatores que contribuem para a confiança
+    CGFloat stdDevWeight = 0.5f;  // Desvio padrão baixo = mais uniforme = mais sintético
     CGFloat edgeWeight = 0.3f;    // Poucas bordas = mais sintético
     CGFloat noiseWeight = 0.2f;   // Pouco ruído = mais sintético
     
@@ -340,19 +490,17 @@
     }
     
     // Calcular confiança combinada
-    CGFloat confidence = (uniformityScore * stdDevWeight) + 
-                         (edgeScore * edgeWeight) + 
+    CGFloat confidence = (uniformityScore * stdDevWeight) +
+                         (edgeScore * edgeWeight) +
                          (noiseScore * noiseWeight);
     
     if (confidenceOut) *confidenceOut = confidence;
     
-    // Considerar sintético se confiança > 0.7 (ajustável)
     return confidence > 0.7f;
 }
 
 - (NSDictionary *)extractVisualFeatures:(CMSampleBufferRef)sampleBuffer {
-    // Extrair características visuais básicas do buffer
-    
+    // Versão simplificada focada apenas em características essenciais
     NSMutableDictionary *features = [NSMutableDictionary dictionary];
     CVImageBufferRef imageBuffer = CMSampleBufferGetImageBuffer(sampleBuffer);
     if (!imageBuffer) return nil;
@@ -371,35 +519,16 @@
     // Verificações básicas
     if (width < 16 || height < 16) return nil;
     
-    // Análise simplificada - estes são algoritmos muito básicos
-    // Uma implementação real usaria bibliotecas como vImage ou OpenCV
+    // Amostragem para histograma e características mais esparsa
+    const size_t sampleStride = 16;
     
-    // 1. Calcular um histograma RGB simplificado (8 bins por canal)
-    const int histogramBins = 8;
-    int histogramR[histogramBins] = {0};
-    int histogramG[histogramBins] = {0};
-    int histogramB[histogramBins] = {0};
-    
-    // 2. Detecção simplificada de bordas e ruído
+    // 1. Detecção simplificada de bordas e ruído
     int edgeCount = 0;
     float noiseSum = 0.0f;
-    
-    // Amostragem para histograma e características
-    const size_t sampleStride = 8;
     
     for (size_t y = sampleStride; y < height - sampleStride; y += sampleStride) {
         for (size_t x = sampleStride; x < width - sampleStride; x += sampleStride) {
             size_t pixelOffset = y * bytesPerRow + x * 4;
-            
-            // Pixel atual
-            uint8_t b = baseAddress[pixelOffset];
-            uint8_t g = baseAddress[pixelOffset + 1];
-            uint8_t r = baseAddress[pixelOffset + 2];
-            
-            // Histograma (agrupar em bins)
-            histogramB[b * histogramBins / 256]++;
-            histogramG[g * histogramBins / 256]++;
-            histogramR[r * histogramBins / 256]++;
             
             // Detecção simples de bordas (diferenças com pixels vizinhos)
             size_t leftOffset = y * bytesPerRow + (x - sampleStride) * 4;
@@ -418,7 +547,7 @@
             
             // Limiar para considerar uma borda
             int gradient = gradientH + gradientV;
-            if (gradient > 100) { // Valor arbitrário para o limiar
+            if (gradient > 100) { // Limiar ajustado
                 edgeCount++;
             }
             
@@ -434,19 +563,6 @@
     // Normalizar estimativa de ruído
     float noiseLevel = noiseSum / ((width * height) / (sampleStride * sampleStride)) / 255.0f;
     features[@"noiseLevel"] = @(noiseLevel);
-    
-    // Histograma normalizado
-    NSMutableArray *histogramData = [NSMutableArray array];
-    for (int i = 0; i < histogramBins; i++) {
-        [histogramData addObject:@{
-            @"bin": @(i),
-            @"r": @((float)histogramR[i] / ((width * height) / (sampleStride * sampleStride))),
-            @"g": @((float)histogramG[i] / ((width * height) / (sampleStride * sampleStride))),
-            @"b": @((float)histogramB[i] / ((width * height) / (sampleStride * sampleStride)))
-        }];
-    }
-    
-    features[@"histogram"] = histogramData;
     
     return features;
 }
@@ -489,8 +605,8 @@
     double totalDiff = 0.0;
     int sampleCount = 0;
     
-    // Amostragem para comparação (não comparar todos os pixels)
-    const size_t sampleStride = 8;
+    // Amostragem para comparação (stride aumentado)
+    const size_t sampleStride = 16;
     
     for (size_t y = 0; y < height1; y += sampleStride) {
         for (size_t x = 0; x < width1; x += sampleStride) {
@@ -520,14 +636,8 @@
 }
 
 - (NSDictionary *)detectContentPatterns:(CMSampleBufferRef)sampleBuffer {
-    // Detectar padrões específicos no conteúdo (implementação básica)
+    // Detectar padrões específicos no conteúdo (implementação simplificada)
     NSMutableDictionary *patterns = [NSMutableDictionary dictionary];
-    
-    // Adicione aqui algoritmos para detectar padrões como:
-    // - Teste de padrões (barras de cor, padrão de xadrez, etc.)
-    // - Cenas estáticas vs. dinâmicas
-    // - Presença de rosto
-    // - Detecção de texto
     
     // Simplificação: usar apenas informações já calculadas
     CGFloat confidence = 0.0f;
@@ -545,23 +655,6 @@
         } else if (edgeDensity && [edgeDensity floatValue] > 0.2) {
             patterns[@"likelyHighDetail"] = @YES;
         }
-        
-        // Outras detecções com base no histograma
-        NSArray *histogram = features[@"histogram"];
-        if (histogram && [histogram count] > 0) {
-            // Verificar se histograma mostra imagem muito brilhante
-            float brightBins = 0;
-            for (NSDictionary *bin in histogram) {
-                NSInteger binIdx = [bin[@"bin"] integerValue];
-                if (binIdx >= 6) { // 2 bins mais brilhantes (de 8)
-                    brightBins += [bin[@"r"] floatValue] + [bin[@"g"] floatValue] + [bin[@"b"] floatValue];
-                }
-            }
-            
-            if (brightBins > 0.6) {
-                patterns[@"likelyOverExposed"] = @YES;
-            }
-        }
     }
     
     return patterns;
@@ -575,6 +668,19 @@
     [report appendFormat:@"Amostras salvas: %lu\n", (unsigned long)_samplesSaved];
     [report appendFormat:@"Diretório de amostras: %@\n\n", _outputDirectory];
     
+    // Padrões detectados
+    [report appendString:@"=== PADRÕES DE BUFFER DETECTADOS ===\n"];
+    NSArray *sortedPatterns = [_patternStats keysSortedByValueUsingComparator:^NSComparisonResult(id obj1, id obj2) {
+        return [obj2 compare:obj1]; // Ordem decrescente
+    }];
+    
+    for (NSString *pattern in sortedPatterns) {
+        NSNumber *count = _patternStats[pattern];
+        NSString *context = _bufferFingerprints[pattern];
+        [report appendFormat:@"Padrão: %@ - Ocorrências: %@, Contexto: %@\n",
+             pattern, count, context];
+    }
+    
     // Estatísticas por aplicativo
     NSMutableDictionary *statsByApp = [NSMutableDictionary dictionary];
     
@@ -587,6 +693,7 @@
             appStats = [NSMutableDictionary dictionary];
             appStats[@"count"] = @0;
             appStats[@"syntheticCount"] = @0;
+            appStats[@"iosurfaceCount"] = @0;
             statsByApp[app] = appStats;
         }
         
@@ -599,137 +706,71 @@
             NSNumber *syntheticCount = appStats[@"syntheticCount"];
             appStats[@"syntheticCount"] = @([syntheticCount integerValue] + 1);
         }
+        
+        // Verificar IOSurface
+        if ([sample[@"hasIOSurface"] boolValue]) {
+            NSNumber *ioSurfaceCount = appStats[@"iosurfaceCount"];
+            appStats[@"iosurfaceCount"] = @([ioSurfaceCount integerValue] + 1);
+        }
     }
     
-    [report appendString:@"Estatísticas por aplicativo:\n"];
+    [report appendString:@"\nEstatísticas por aplicativo:\n"];
     for (NSString *app in statsByApp) {
         NSDictionary *appStats = statsByApp[app];
         NSInteger count = [appStats[@"count"] integerValue];
         NSInteger syntheticCount = [appStats[@"syntheticCount"] integerValue];
+        NSInteger ioSurfaceCount = [appStats[@"iosurfaceCount"] integerValue];
         
-        [report appendFormat:@"- %@: %ld amostras, %.1f%% sintéticas\n", 
-                 app, (long)count, (count > 0 ? (float)syntheticCount / count * 100 : 0)];
+        [report appendFormat:@"- %@: %ld amostras\n", app, (long)count];
+        [report appendFormat:@"  - %.1f%% sintéticas\n", (count > 0 ? (float)syntheticCount / count * 100 : 0)];
+        [report appendFormat:@"  - %.1f%% com IOSurface\n", (count > 0 ? (float)ioSurfaceCount / count * 100 : 0)];
     }
     
-    // Análise de formatos de pixel e dimensões
-    [report appendString:@"\nAnálise de formatos:\n"];
-    NSMutableDictionary *formatStats = [NSMutableDictionary dictionary];
-    NSMutableDictionary *dimensionStats = [NSMutableDictionary dictionary];
+    // CRÍTICO: Identificar pontos prováveis para substituição
+    [report appendString:@"\n=== PONTOS POTENCIAIS PARA SUBSTITUIÇÃO ===\n"];
     
+    // Buffers com IOSurface são candidatos principais
+    NSMutableArray *ioSurfaceSamples = [NSMutableArray array];
     for (NSDictionary *sample in _capturedBufferInfo) {
-        NSString *formatString = sample[@"formatString"];
-        if (formatString) {
-            NSNumber *count = formatStats[formatString];
-            if (!count) count = @0;
-            formatStats[formatString] = @([count integerValue] + 1);
+        if ([sample[@"hasIOSurface"] boolValue]) {
+            [ioSurfaceSamples addObject:sample];
+        }
+    }
+    
+    if (ioSurfaceSamples.count > 0) {
+        [report appendFormat:@"Detectados %lu buffers com IOSurface:\n", (unsigned long)ioSurfaceSamples.count];
+        
+        // Agrupar por ID de IOSurface
+        NSMutableDictionary *surfaceGroups = [NSMutableDictionary dictionary];
+        for (NSDictionary *sample in ioSurfaceSamples) {
+            NSNumber *surfaceID = sample[@"IOSurfaceID"];
+            if (!surfaceID) continue;
+            
+            NSMutableArray *group = surfaceGroups[surfaceID];
+            if (!group) {
+                group = [NSMutableArray array];
+                surfaceGroups[surfaceID] = group;
+            }
+            [group addObject:sample];
         }
         
-        NSNumber *width = sample[@"width"];
-        NSNumber *height = sample[@"height"];
-        if (width && height) {
-            NSString *resolution = [NSString stringWithFormat:@"%@x%@", width, height];
-            NSNumber *count = dimensionStats[resolution];
-            if (!count) count = @0;
-            dimensionStats[resolution] = @([count integerValue] + 1);
+        // Listar IOSurfaces compartilhadas (mais interessantes)
+        for (NSNumber *surfaceID in surfaceGroups) {
+            NSArray *group = surfaceGroups[surfaceID];
+            if (group.count > 1) {
+                [report appendFormat:@"- IOSurface %@: %lu referências\n", surfaceID, (unsigned long)group.count];
+                
+                NSMutableSet *contexts = [NSMutableSet set];
+                for (NSDictionary *sample in group) {
+                    [contexts addObject:sample[@"context"]];
+                }
+                
+                [report appendFormat:@"  Contextos: %@\n", contexts];
+                
+                // Esta é uma IOSurface compartilhada - PONTO CRÍTICO para substituição universal
+                [report appendFormat:@"  ⭐️ PONTO CRÍTICO PARA SUBSTITUIÇÃO UNIVERSAL ⭐️\n"];
+            }
         }
-    }
-    
-    // Mostrar formatos de pixel
-    [report appendString:@"Formatos de pixel encontrados:\n"];
-    for (NSString *format in formatStats) {
-        NSNumber *count = formatStats[format];
-        [report appendFormat:@"- '%@': %@ amostras (%.1f%%)\n", 
-             format, count, (float)[count integerValue] / _samplesSaved * 100];
-    }
-    
-    // Mostrar resoluções
-    [report appendString:@"\nResoluções encontradas:\n"];
-    for (NSString *resolution in dimensionStats) {
-        NSNumber *count = dimensionStats[resolution];
-        [report appendFormat:@"- %@: %@ amostras (%.1f%%)\n", 
-             resolution, count, (float)[count integerValue] / _samplesSaved * 100];
-    }
-    
-    // Resumo de características visuais
-    float avgBrightness = 0.0f;
-    float avgNoise = 0.0f;
-    float avgEdges = 0.0f;
-    NSInteger featuresCount = 0;
-    
-    for (NSDictionary *sample in _capturedBufferInfo) {
-        NSDictionary *analysis = sample[@"analysis"];
-        if (!analysis) continue;
-        
-        NSNumber *brightness = analysis[@"avgBrightness"];
-        NSNumber *noiseLevel = analysis[@"noiseLevel"];
-        NSNumber *edgeDensity = analysis[@"edgeDensity"];
-        
-        if (brightness && noiseLevel && edgeDensity) {
-            avgBrightness += [brightness floatValue];
-            avgNoise += [noiseLevel floatValue];
-            avgEdges += [edgeDensity floatValue];
-            featuresCount++;
-        }
-    }
-    
-    if (featuresCount > 0) {
-        avgBrightness /= featuresCount;
-        avgNoise /= featuresCount;
-        avgEdges /= featuresCount;
-        
-        [report appendString:@"\nMédia das características visuais:\n"];
-        [report appendFormat:@"- Brilho médio: %.2f\n", avgBrightness];
-        [report appendFormat:@"- Nível de ruído médio: %.4f\n", avgNoise];
-        [report appendFormat:@"- Densidade de bordas média: %.4f\n", avgEdges];
-    }
-    
-    // Conclusões
-    [report appendString:@"\nCONCLUSÕES E RECOMENDAÇÕES:\n"];
-    
-    // Verificar se há alta prevalência de conteúdo sintético
-    NSInteger totalSyntheticSamples = 0;
-    for (NSString *app in statsByApp) {
-        NSDictionary *appStats = statsByApp[app];
-        totalSyntheticSamples += [appStats[@"syntheticCount"] integerValue];
-    }
-    
-    float syntheticPercentage = _samplesSaved > 0 ? (float)totalSyntheticSamples / _samplesSaved * 100 : 0;
-    
-    if (syntheticPercentage > 50) {
-        [report appendString:@"- ALERTA: Alta prevalência de conteúdo sintético detectado (>50%).\n"];
-        [report appendString:@"  Isso pode indicar que já há substituição de feed em andamento ou problemas no diagnóstico.\n"];
-    }
-    
-    // Formato mais comum - possível alvo para implementação
-    NSString *mostCommonFormat = nil;
-    NSInteger maxFormatCount = 0;
-    for (NSString *format in formatStats) {
-        NSInteger count = [formatStats[format] integerValue];
-        if (count > maxFormatCount) {
-            maxFormatCount = count;
-            mostCommonFormat = format;
-        }
-    }
-    
-    if (mostCommonFormat) {
-        [report appendFormat:@"- Formato mais comum para interceptação: '%@' (%.1f%% das amostras).\n", 
-             mostCommonFormat, (float)maxFormatCount / _samplesSaved * 100];
-    }
-    
-    // Resolução mais comum
-    NSString *mostCommonResolution = nil;
-    NSInteger maxResCount = 0;
-    for (NSString *resolution in dimensionStats) {
-        NSInteger count = [dimensionStats[resolution] integerValue];
-        if (count > maxResCount) {
-            maxResCount = count;
-            mostCommonResolution = resolution;
-        }
-    }
-    
-    if (mostCommonResolution) {
-        [report appendFormat:@"- Resolução mais comum para substituição: %@ (%.1f%% das amostras).\n", 
-             mostCommonResolution, (float)maxResCount / _samplesSaved * 100];
     }
     
     [report appendString:@"\n==== FIM DO RELATÓRIO ====\n"];

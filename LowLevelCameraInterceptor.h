@@ -4,6 +4,7 @@
 #import <AVFoundation/AVFoundation.h>
 #import <CoreMedia/CoreMedia.h>
 #import <IOKit/IOKitLib.h>
+#import <CommonCrypto/CommonDigest.h>
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -31,6 +32,17 @@ NS_ASSUME_NONNULL_BEGIN
 // Configurar diretório para amostras de buffer
 @property (nonatomic, copy) NSString *bufferSamplesDirectory;
 
+// Métodos de análise
+- (void)analyzeBufferFlowPatterns;
+- (NSDictionary *)calculateTypicalBufferFlow;
+- (NSArray *)identifyKeyInterceptionPoints;
+- (void)generateFinalReport;
+
+// Rastreamento de buffers
+- (void)registerBufferFlow:(CVPixelBufferRef)pixelBuffer
+                    source:(NSString *)source
+               destination:(NSString *)destination;
+
 @end
 
 
@@ -43,11 +55,22 @@ NS_ASSUME_NONNULL_BEGIN
 // Iniciar monitoramento de frameworks privados
 + (void)startMonitoring;
 
-// Processos escaneados
+// Processso escaneados
 + (NSArray<NSString *> *)scannedFrameworks;
 
 // Classes detectadas relacionadas à câmera
 + (NSArray<NSString *> *)detectedCameraRelatedClasses;
+
+// Hooks para classes específicas
++ (void)hookCameraKitClasses;
++ (void)hookCMCaptureClasses;
++ (void)hookMediaToolboxClasses;
+
+// Scan de frameworks e classes
++ (void)scanFramework:(NSString *)frameworkPath;
++ (void)scanAllLoadedClasses;
++ (void)inspectCameraRelatedClass:(Class)cls;
++ (void)addHooksForCameraRelatedClass:(Class)cls;
 
 @end
 
