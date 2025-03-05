@@ -9,6 +9,7 @@ CameraDiagnostic_FILES = Tweak.xm \
     CameraBufferSubstitutionInterceptor.m \
     CameraDiagnosticFramework.m \
     CameraFeedSubstitutionSource.m \
+    BufferContentInspector.m \
     logger.m
 
 CameraDiagnostic_CFLAGS = -fobjc-arc -Wno-deprecated-declarations

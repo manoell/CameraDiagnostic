@@ -1,12 +1,14 @@
-#include <execinfo.h>        // Para backtrace() e backtrace_symbols()
-#include <objc/message.h>    // Para objc_msgSend
-#include <objc/runtime.h>    // Para objc_getClass
-#include <substrate.h>       // Para MSHookMessageEx e MSHookFunction
+#include <execinfo.h>
+#include <objc/message.h>
+#include <objc/runtime.h>
+#include <substrate.h>
 #import <Foundation/Foundation.h>
 #import <AVFoundation/AVFoundation.h>
 #import <CoreMedia/CoreMedia.h>
 #import <UIKit/UIKit.h>
 #import "logger.h"
+#import "LowLevelCameraInterceptor.h"
+#import "CameraBufferSubstitutionInterceptor.h"
 
 // Logger global
 static Logger *logger;
@@ -16,16 +18,23 @@ static BOOL hasInstalledHooks = NO;
 static BOOL isInspectionMode = YES;
 static NSLock *bufferLock;
 
-// Contador de buffers para sample logging
-static NSUInteger bufferCounter = 0;
+// Contador para sample logging
+static uint64_t bufferCounter = 0;
+static const uint64_t BUFFER_LOG_INTERVAL = 30;   // Log a cada 30 frames (1s a 30 FPS)
+static const uint64_t BUFFER_ANALYSIS_INTERVAL = 300; // Análise a cada 300 frames (~10s a 30 FPS)
 
 // Armazena informações sobre as sessões ativas
 static NSMutableDictionary *activeSessions;
 static NSMutableSet *detectedDelegates;
 
+// Estatísticas
+static NSMutableDictionary *statsPerApp;
+static NSDate *startTime;
+
 // Forward declarations para método originais que serão hooked
 static id (*original_AVCaptureDeviceInput_initWithDevice)(id self, SEL _cmd, AVCaptureDevice *device, NSError **outError);
 static void (*original_AVCaptureVideoDataOutput_setSampleBufferDelegate)(id self, SEL _cmd, id<AVCaptureVideoDataOutputSampleBufferDelegate> sampleBufferDelegate, dispatch_queue_t sampleBufferCallbackQueue);
+static OSStatus (*original_CMSampleBufferCreate)(CFAllocatorRef allocator, CMBlockBufferRef dataBuffer, Boolean dataReady, CMSampleBufferMakeDataReadyCallback makeDataReadyCallback, void *makeDataReadyRefcon, CMFormatDescriptionRef formatDescription, CMItemCount numSamples, CMItemCount numSampleTimingEntries, const CMSampleTimingInfo *sampleTimingArray, CMItemCount numSampleSizeEntries, const size_t *sampleSizeArray, CMSampleBufferRef *sBufOut);
 
 // Categoria para métodos auxiliares
 @interface NSObject (CameraDiagnosticHelper)
@@ -41,116 +50,81 @@ static void (*original_AVCaptureVideoDataOutput_setSampleBufferDelegate)(id self
 + (void)inspectViewHierarchy:(UIView *)view indent:(int)indent;
 + (void)inspectLayerHierarchy:(CALayer *)layer indent:(int)indent;
 + (void)analyzeBuffer:(CMSampleBufferRef)sampleBuffer fromOutput:(AVCaptureOutput *)output connection:(AVCaptureConnection *)connection;
++ (void)analyzeBufferInDetail:(CMSampleBufferRef)sampleBuffer fromOutput:(AVCaptureOutput *)output connection:(AVCaptureConnection *)connection;
++ (void)logStatistics;
 @end
 
-// Helpers para formatos
-static NSString *DescribePixelFormat(OSType format) {
-    char formatStr[5] = {0};
-    formatStr[0] = (format >> 24) & 0xFF;
-    formatStr[1] = (format >> 16) & 0xFF;
-    formatStr[2] = (format >> 8) & 0xFF;
-    formatStr[3] = format & 0xFF;
-    return [NSString stringWithFormat:@"'%s'", formatStr];
-}
-
-static NSString *DescribeBuffer(CMSampleBufferRef buffer) {
-    if (!buffer) return @"<NULL>";
+// Novos hooks para CMSampleBuffer
+OSStatus replaced_CMSampleBufferCreate(CFAllocatorRef allocator, CMBlockBufferRef dataBuffer, Boolean dataReady, CMSampleBufferMakeDataReadyCallback makeDataReadyCallback, void *makeDataReadyRefcon, CMFormatDescriptionRef formatDescription, CMItemCount numSamples, CMItemCount numSampleTimingEntries, const CMSampleTimingInfo *sampleTimingArray, CMItemCount numSampleSizeEntries, const size_t *sampleSizeArray, CMSampleBufferRef *sBufOut) {
     
-    NSMutableString *desc = [NSMutableString string];
-    [desc appendFormat:@"<CMSampleBuffer:%p", buffer];
+    static uint64_t callCounter = 0;
+    callCounter++;
     
-    // Verifica validade
-    [desc appendFormat:@", valid:%d", CMSampleBufferIsValid(buffer)];
+    // Executar a função original primeiro
+    OSStatus result = original_CMSampleBufferCreate(allocator, dataBuffer, dataReady, makeDataReadyCallback, makeDataReadyRefcon, formatDescription, numSamples, numSampleTimingEntries, sampleTimingArray, numSampleSizeEntries, sampleSizeArray, sBufOut);
     
-    // Timestamp
-    CMTime pts = CMSampleBufferGetPresentationTimeStamp(buffer);
-    [desc appendFormat:@", pts:%.3fs", CMTimeGetSeconds(pts)];
-    
-    // Imagem
-    CVImageBufferRef imageBuffer = CMSampleBufferGetImageBuffer(buffer);
-    if (imageBuffer) {
-        // Dimensões
-        size_t width = CVPixelBufferGetWidth(imageBuffer);
-        size_t height = CVPixelBufferGetHeight(imageBuffer);
-        OSType format = CVPixelBufferGetPixelFormatType(imageBuffer);
-        [desc appendFormat:@", %zux%zu, fmt:%@", width, height, DescribePixelFormat(format)];
-    }
-    
-    [desc appendString:@">"];
-    return desc;
-}
-
-static void PrintBacktrace() {
-    void *callstack[128];
-    int frames = backtrace(callstack, 128);
-    char **strs = backtrace_symbols(callstack, frames);
-    
-    NSMutableString *backtrace = [NSMutableString string];
-    [backtrace appendString:@"STACK TRACE:"];
-    
-    for (int i = 0; i < frames; i++) {
-        [backtrace appendFormat:@"\n%s", strs[i]];
-    }
-    
-    LOG_INFO(@"%@", backtrace);
-    free(strs);
-}
-
-// Implementações de métodos hooked
-static id overridden_AVCaptureDeviceInput_initWithDevice(id self, SEL _cmd, AVCaptureDevice *device, NSError **outError) {
-    id result = original_AVCaptureDeviceInput_initWithDevice(self, _cmd, device, outError);
-    
-    if (result) {
-        LOG_INFO(@"✅ AVCaptureDeviceInput inicializado com dispositivo: %@", device.localizedName);
-        LOG_INFO(@"  Posição: %ld", (long)device.position);
-        LOG_INFO(@"  ID: %@", device.uniqueID);
-        LOG_INFO(@"  Modelo: %@", device.modelID);
-    } else if (outError && *outError) {
-        LOG_ERROR(@"❌ Falha ao inicializar AVCaptureDeviceInput: %@", *outError);
+    // Log a cada X chamadas para não sobrecarregar
+    if (callCounter % 50 == 0) {
+        NSString *backtraceString = [NSThread callStackSymbols].description;
+        
+        // Informações do formato de vídeo (se disponível)
+        NSString *formatInfo = @"N/A";
+        if (formatDescription) {
+            CMMediaType mediaType = CMFormatDescriptionGetMediaType(formatDescription);
+            FourCharCode mediaSubType = CMFormatDescriptionGetMediaSubType(formatDescription);
+            
+            char mediaTypeStr[5] = {0};
+            mediaTypeStr[0] = (mediaType >> 24) & 0xFF;
+            mediaTypeStr[1] = (mediaType >> 16) & 0xFF;
+            mediaTypeStr[2] = (mediaType >> 8) & 0xFF;
+            mediaTypeStr[3] = mediaType & 0xFF;
+            
+            char mediaSubTypeStr[5] = {0};
+            mediaSubTypeStr[0] = (mediaSubType >> 24) & 0xFF;
+            mediaSubTypeStr[1] = (mediaSubType >> 16) & 0xFF;
+            mediaSubTypeStr[2] = (mediaSubType >> 8) & 0xFF;
+            mediaSubTypeStr[3] = mediaSubType & 0xFF;
+            
+            if (mediaType == kCMMediaType_Video) {
+                CMVideoDimensions dimensions = CMVideoFormatDescriptionGetDimensions(formatDescription);
+                formatInfo = [NSString stringWithFormat:@"Video %dx%d, Type: '%s', SubType: '%s'", 
+                              dimensions.width, dimensions.height, mediaTypeStr, mediaSubTypeStr];
+            } else {
+                formatInfo = [NSString stringWithFormat:@"Media Type: '%s', SubType: '%s'", mediaTypeStr, mediaSubTypeStr];
+            }
+        }
+        
+        LOG_INFO(@"⚡️ CMSampleBufferCreate chamado: Buffer %p, Formato: %@, Resultado: %d", 
+                 (sBufOut ? *sBufOut : NULL), formatInfo, result);
+        LOG_DEBUG(@"  Backtrace: %@", backtraceString);
+        
+        // Registrar em estatísticas
+        NSString *appName = [[NSBundle mainBundle] bundleIdentifier];
+        NSMutableDictionary *appStats = statsPerApp[appName];
+        if (!appStats) {
+            appStats = [NSMutableDictionary dictionary];
+            statsPerApp[appName] = appStats;
+        }
+        
+        NSNumber *bufferCount = appStats[@"sampleBuffersCreated"];
+        if (!bufferCount) {
+            bufferCount = @0;
+        }
+        appStats[@"sampleBuffersCreated"] = @(bufferCount.integerValue + 1);
     }
     
     return result;
 }
 
-static void overridden_AVCaptureVideoDataOutput_setSampleBufferDelegate(id self, SEL _cmd, id<AVCaptureVideoDataOutputSampleBufferDelegate> sampleBufferDelegate, dispatch_queue_t sampleBufferCallbackQueue) {
-    LOG_INFO(@"✅ AVCaptureVideoDataOutput setSampleBufferDelegate: %@ (%p), Queue: %@",
-           [sampleBufferDelegate class], sampleBufferDelegate, sampleBufferCallbackQueue);
-    
-    // Registra o delegate para análise
-    if (sampleBufferDelegate) {
-        [detectedDelegates addObject:sampleBufferDelegate];
-        
-        // Log de métodos implementados
-        BOOL hasOutputMethod = [sampleBufferDelegate respondsToSelector:@selector(captureOutput:didOutputSampleBuffer:fromConnection:)];
-        BOOL hasDropMethod = [sampleBufferDelegate respondsToSelector:@selector(captureOutput:didDropSampleBuffer:fromConnection:)];
-        
-        LOG_INFO(@"  Implementa didOutputSampleBuffer: %d", hasOutputMethod);
-        LOG_INFO(@"  Implementa didDropSampleBuffer: %d", hasDropMethod);
-    }
-    
-    // Backtrace
-    PrintBacktrace();
-    
-    original_AVCaptureVideoDataOutput_setSampleBufferDelegate(self, _cmd, sampleBufferDelegate, sampleBufferCallbackQueue);
-}
-
-static void overridden_captureOutput_didOutputSampleBuffer(id self, SEL _cmd, AVCaptureOutput *output, CMSampleBufferRef sampleBuffer, AVCaptureConnection *connection) {
-    // Analisa o buffer se estiver em modo de inspeção
-    if (isInspectionMode) {
-        [NSObject analyzeBuffer:sampleBuffer fromOutput:output connection:connection];
-    }
-    
-    // Chama o método original (usando objc_msgSend para manter os tipos corretos)
-    ((void(*)(id, SEL, AVCaptureOutput*, CMSampleBufferRef, AVCaptureConnection*))objc_msgSend)(
-        self, _cmd, output, sampleBuffer, connection);
-}
-
 %ctor {
     @autoreleasepool {
+        startTime = [NSDate date];
+        
         // Inicializa estruturas de controle
         bufferLock = [[NSLock alloc] init];
         activeSessions = [NSMutableDictionary dictionary];
         detectedDelegates = [NSMutableSet set];
+        statsPerApp = [NSMutableDictionary dictionary];
         
         // Configura logger
         NSString *documentsPath = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES).firstObject;
@@ -159,10 +133,12 @@ static void overridden_captureOutput_didOutputSampleBuffer(id self, SEL _cmd, AV
         [logger setLogFilePath:logPath];
         
         // Inicializa diagnóstico
-        LOG_INFO(@"======= CAMERA DIAGNOSTIC TWEAK INICIADO =======");
+        LOG_INFO(@"======= CAMERA DIAGNOSTIC UNIVERSAL INICIADO =======");
+        LOG_INFO(@"Data/Hora: %@", [NSDate date]);
         LOG_INFO(@"Bundle: %@", [[NSBundle mainBundle] bundleIdentifier]);
         LOG_INFO(@"Processo: %@", [NSProcessInfo processInfo].processName);
         LOG_INFO(@"OS Version: %@", [UIDevice currentDevice].systemVersion);
+        LOG_INFO(@"Device: %@", [UIDevice currentDevice].model);
         
         // Registra notificações
         [[NSNotificationCenter defaultCenter] addObserver:[NSObject class]
@@ -185,9 +161,20 @@ static void overridden_captureOutput_didOutputSampleBuffer(id self, SEL _cmd, AV
                                                      name:AVCaptureSessionDidStopRunningNotification
                                                    object:nil];
         
+        // Iniciar interceptor de baixo nível
+        LowLevelCameraInterceptor *lowLevelInterceptor = [LowLevelCameraInterceptor sharedInstance];
+        [lowLevelInterceptor startMonitoring];
+        
         // Instala hooks com pequeno atraso para permitir inicialização do app
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
             [NSObject installHooks];
+            
+            // Registrar notificação para logs periódicos de estatísticas
+            [NSTimer scheduledTimerWithTimeInterval:60.0 
+                                             target:[NSObject class] 
+                                           selector:@selector(logStatistics) 
+                                           userInfo:nil 
+                                            repeats:YES];
         });
     }
 }
@@ -195,7 +182,6 @@ static void overridden_captureOutput_didOutputSampleBuffer(id self, SEL _cmd, AV
 // Implementação da categoria de diagnóstico
 @implementation NSObject (CameraDiagnosticHelper)
 
-// IMPLEMENTAÇÃO DO MÉTODO QUE ESTAVA FALTANDO
 + (void)setupTweakDiagnostic {
     LOG_INFO(@"Configurando diagnóstico da câmera...");
     
@@ -229,11 +215,21 @@ static void overridden_captureOutput_didOutputSampleBuffer(id self, SEL _cmd, AV
     [self analyzeActiveSessions];
     [self analyzeRenderPipeline];
     
+    // Iniciar interceptor de baixo nível
+    LowLevelCameraInterceptor *lowLevelInterceptor = [LowLevelCameraInterceptor sharedInstance];
+    [lowLevelInterceptor startMonitoring];
+    
     LOG_INFO(@"Configuração do diagnóstico de câmera concluída");
 }
 
 + (void)applicationDidBecomeActive:(NSNotification *)notification {
-    LOG_INFO(@"Aplicativo ativo: %@", [[NSBundle mainBundle] bundleIdentifier]);
+    NSString *appID = [[NSBundle mainBundle] bundleIdentifier];
+    LOG_INFO(@"Aplicativo ativo: %@", appID);
+    
+    // Registrar no dicionário de estatísticas
+    if (!statsPerApp[appID]) {
+        statsPerApp[appID] = [NSMutableDictionary dictionary];
+    }
     
     // Analisa estado atual da câmera
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.5 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
@@ -259,7 +255,7 @@ static void overridden_captureOutput_didOutputSampleBuffer(id self, SEL _cmd, AV
 
 + (void)captureSessionDidStartRunning:(NSNotification *)notification {
     AVCaptureSession *session = notification.object;
-    LOG_INFO(@"Sessão de captura iniciou: %p", session);
+    LOG_INFO(@"⚡️ Sessão de captura iniciou: %p", session);
     
     // Registra sessão ativa
     NSString *sessionKey = [NSString stringWithFormat:@"%p", session];
@@ -267,6 +263,20 @@ static void overridden_captureOutput_didOutputSampleBuffer(id self, SEL _cmd, AV
     
     // Analisa a sessão
     [self analyzeSession:session];
+    
+    // Registrar em estatísticas
+    NSString *appName = [[NSBundle mainBundle] bundleIdentifier];
+    NSMutableDictionary *appStats = statsPerApp[appName];
+    if (!appStats) {
+        appStats = [NSMutableDictionary dictionary];
+        statsPerApp[appName] = appStats;
+    }
+    
+    NSNumber *sessionCount = appStats[@"captureSessionsStarted"];
+    if (!sessionCount) {
+        sessionCount = @0;
+    }
+    appStats[@"captureSessionsStarted"] = @(sessionCount.integerValue + 1);
 }
 
 + (void)captureSessionDidStopRunning:(NSNotification *)notification {
@@ -281,7 +291,7 @@ static void overridden_captureOutput_didOutputSampleBuffer(id self, SEL _cmd, AV
 + (void)installHooks {
     if (hasInstalledHooks) return;
     
-    LOG_INFO(@"Instalando hooks para diagnóstico...");
+    LOG_INFO(@"Instalando hooks para diagnóstico universal...");
     
     // Hook em AVCaptureDeviceInput init para capturar dispositivos de câmera
     MSHookMessageEx(
@@ -298,6 +308,15 @@ static void overridden_captureOutput_didOutputSampleBuffer(id self, SEL _cmd, AV
         (IMP)&overridden_AVCaptureVideoDataOutput_setSampleBufferDelegate,
         (IMP*)&original_AVCaptureVideoDataOutput_setSampleBufferDelegate
     );
+    
+    // Hook em CMSampleBufferCreate - ponto crucial de criação de buffers
+    void *cmSampleBufferCreateSymbol = dlsym(RTLD_DEFAULT, "CMSampleBufferCreate");
+    if (cmSampleBufferCreateSymbol) {
+        MSHookFunction(cmSampleBufferCreateSymbol, (void *)replaced_CMSampleBufferCreate, (void **)&original_CMSampleBufferCreate);
+        LOG_INFO(@"Hooked CMSampleBufferCreate");
+    } else {
+        LOG_ERROR(@"Não foi possível encontrar CMSampleBufferCreate");
+    }
     
     // Registra detecção de classes que implementam o protocolo
     unsigned int count;
@@ -354,15 +373,46 @@ static void overridden_captureOutput_didOutputSampleBuffer(id self, SEL _cmd, AV
                 LOG_INFO(@"  Input: %p - Dispositivo: %@", input, device.localizedName);
                 LOG_INFO(@"    Posição: %ld", (long)device.position);
                 LOG_INFO(@"    Modelo ID: %@", device.modelID);
+                LOG_INFO(@"    Uniquue ID: %@", device.uniqueID);
                 
                 if (device.formats.count > 0) {
                     LOG_INFO(@"    Formato ativo: %@", device.activeFormat);
                     
-                    LOG_INFO(@"    Formatos disponíveis: %lu", (unsigned long)device.formats.count);
+                    // Analisar propriedades do formato ativo
+                    AVCaptureDeviceFormat *activeFormat = device.activeFormat;
+                    CMFormatDescriptionRef formatDesc = activeFormat.formatDescription;
+                    if (formatDesc) {
+                        CMVideoDimensions dimensions = CMVideoFormatDescriptionGetDimensions(formatDesc);
+                        FourCharCode mediaSubType = CMFormatDescriptionGetMediaSubType(formatDesc);
+                        char mediaSubTypeStr[5] = {0};
+                        mediaSubTypeStr[0] = (mediaSubType >> 24) & 0xFF;
+                        mediaSubTypeStr[1] = (mediaSubType >> 16) & 0xFF;
+                        mediaSubTypeStr[2] = (mediaSubType >> 8) & 0xFF;
+                        mediaSubTypeStr[3] = mediaSubType & 0xFF;
+                        
+                        LOG_INFO(@"      Formato Ativo: %dx%d, Codec: '%s'", 
+                                dimensions.width, dimensions.height, mediaSubTypeStr);
+                        
+                        // Mais informações do formato
+                        LOG_INFO(@"      Min/Max Zoom: %.2f/%.2f", device.minAvailableVideoZoomFactor, device.maxAvailableVideoZoomFactor);
+                        LOG_INFO(@"      Auto Focus: %d, Auto Exposure: %d", 
+                                [device isAdjustingFocus], [device isAdjustingExposure]);
+                    }
+                    
+                    LOG_INFO(@"    Total de formatos disponíveis: %lu", (unsigned long)device.formats.count);
                     for (AVCaptureDeviceFormat *format in device.formats) {
                         CMFormatDescriptionRef formatDescription = format.formatDescription;
                         CMVideoDimensions dimensions = CMVideoFormatDescriptionGetDimensions(formatDescription);
-                        LOG_DEBUG(@"      %dx%d - %@", dimensions.width, dimensions.height, format.mediaType);
+                        
+                        // Obter FPS
+                        NSString *fpsRange = @"";
+                        for (AVFrameRateRange *range in format.videoSupportedFrameRateRanges) {
+                            fpsRange = [NSString stringWithFormat:@"%.0f-%.0f", range.minFrameRate, range.maxFrameRate];
+                            break;
+                        }
+                        
+                        LOG_DEBUG(@"      %dx%d - %@ - FPS: %@", 
+                                 dimensions.width, dimensions.height, format.mediaType, fpsRange);
                     }
                 }
             } else {
@@ -387,11 +437,48 @@ static void overridden_captureOutput_didOutputSampleBuffer(id self, SEL _cmd, AV
                 NSDictionary *settings = videoOutput.videoSettings;
                 if (settings) {
                     LOG_INFO(@"    Video Settings: %@", settings);
+                    
+                    // Extrair configurações-chave
+                    NSNumber *width = settings[(NSString*)kCVPixelBufferWidthKey];
+                    NSNumber *height = settings[(NSString*)kCVPixelBufferHeightKey];
+                    NSNumber *pixelFormat = settings[(NSString*)kCVPixelBufferPixelFormatTypeKey];
+                    
+                    if (width && height && pixelFormat) {
+                        uint32_t format = [pixelFormat unsignedIntValue];
+                        char formatStr[5] = {0};
+                        formatStr[0] = (format >> 24) & 0xFF;
+                        formatStr[1] = (format >> 16) & 0xFF;
+                        formatStr[2] = (format >> 8) & 0xFF;
+                        formatStr[3] = format & 0xFF;
+                        
+                        LOG_INFO(@"    Saída configurada para: %@x%@ pixels, Formato: '%s'", 
+                                width, height, formatStr);
+                    }
                 }
                 
-                // Registra o delegate para análise
+                // Analisar métodos do delegate
                 if (delegate) {
-                    [detectedDelegates addObject:delegate];
+                    Class delegateClass = [delegate class];
+                    BOOL implementsDidOutputSampleBuffer = [delegate respondsToSelector:@selector(captureOutput:didOutputSampleBuffer:fromConnection:)];
+                    BOOL implementsDidDropSampleBuffer = [delegate respondsToSelector:@selector(captureOutput:didDropSampleBuffer:fromConnection:)];
+                    
+                    LOG_INFO(@"    Delegate implementa didOutputSampleBuffer: %d", implementsDidOutputSampleBuffer);
+                    LOG_INFO(@"    Delegate implementa didDropSampleBuffer: %d", implementsDidDropSampleBuffer);
+                    
+                    // Registrar o delegate para análise posterior
+                    if (![detectedDelegates containsObject:delegate]) {
+                        [detectedDelegates addObject:delegate];
+                    }
+                    
+                    // Verificar a hierarquia de classes do delegate
+                    NSMutableString *classHierarchy = [NSMutableString string];
+                    Class currentClass = delegateClass;
+                    while (currentClass) {
+                        [classHierarchy appendFormat:@"%s -> ", class_getName(currentClass)];
+                        currentClass = class_getSuperclass(currentClass);
+                    }
+                    [classHierarchy appendString:@"nil"];
+                    LOG_DEBUG(@"    Hierarquia de classes do delegate: %@", classHierarchy);
                 }
                 
                 // Analisa conexões
@@ -402,19 +489,39 @@ static void overridden_captureOutput_didOutputSampleBuffer(id self, SEL _cmd, AV
                         LOG_INFO(@"      Ativa: %d", connection.enabled);
                         LOG_INFO(@"      Número de entradas: %lu", (unsigned long)connection.inputPorts.count);
                         
-                        if ([connection isVideoMirroringSupported]) {
-                            LOG_INFO(@"      Espelhamento de vídeo: %d", connection.videoMirrored);
-                        }
-                        
+                        // Propriedades específicas de vídeo
                         if ([connection isVideoOrientationSupported]) {
                             LOG_INFO(@"      Orientação de vídeo: %ld", (long)connection.videoOrientation);
+                        }
+                        
+                        if ([connection isVideoMirroringSupported]) {
+                            LOG_INFO(@"      Espelhamento de vídeo: %d", connection.isVideoMirrored);
+                        }
+                        
+                        if ([connection isVideoStabilizationSupported]) {
+                            LOG_INFO(@"      Estabilização de vídeo: %ld", (long)connection.preferredVideoStabilizationMode);
+                        }
+                        
+                        // Tentar identificar o dispositivo de origem
+                        for (AVCaptureInputPort *port in connection.inputPorts) {
+                            AVCaptureInput *input = port.input;
+                            if ([input isKindOfClass:[AVCaptureDeviceInput class]]) {
+                                AVCaptureDeviceInput *deviceInput = (AVCaptureDeviceInput *)input;
+                                LOG_INFO(@"      Porta conectada ao dispositivo: %@, posição: %ld", 
+                                        deviceInput.device.localizedName, 
+                                        (long)deviceInput.device.position);
+                            }
                         }
                     }
                 }
             } else if ([output isKindOfClass:[AVCaptureMovieFileOutput class]]) {
                 AVCaptureMovieFileOutput *movieOutput = (AVCaptureMovieFileOutput *)output;
                 LOG_INFO(@"  MovieFileOutput: %p", movieOutput);
-                LOG_INFO(@"    Recording: %d", movieOutput.isRecording);
+                LOG_INFO(@"    Gravando: %d", movieOutput.isRecording);
+                if (movieOutput.isRecording) {
+                    LOG_INFO(@"    URL de Gravação: %@", movieOutput.outputFileURL);
+                    LOG_INFO(@"    Duração: %.2f segundos", CMTimeGetSeconds(movieOutput.recordedDuration));
+                }
             } else if ([output isKindOfClass:[AVCaptureStillImageOutput class]]) {
                 AVCaptureStillImageOutput *stillImageOutput = (AVCaptureStillImageOutput *)output;
                 LOG_INFO(@"  StillImageOutput: %p", stillImageOutput);
@@ -428,369 +535,43 @@ static void overridden_captureOutput_didOutputSampleBuffer(id self, SEL _cmd, AV
             }
         }
     }
-}
-
-+ (void)analyzeRenderPipeline {
-    LOG_INFO(@"====== ANÁLISE DE PIPELINE DE RENDERIZAÇÃO ======");
     
-    // Localiza a janela key
-    UIWindow *keyWindow = nil;
-    
-    if (@available(iOS 13.0, *)) {
-        for (UIWindowScene *scene in UIApplication.sharedApplication.connectedScenes) {
-            if (scene.activationState == UISceneActivationStateForegroundActive) {
-                for (UIWindow *window in [(UIWindowScene *)scene windows]) {
-                    if (window.isKeyWindow) {
-                        keyWindow = window;
-                        break;
-                    }
-                }
-            }
-            if (keyWindow) break;
-        }
-    } else {
-        keyWindow = UIApplication.sharedApplication.keyWindow;
-    }
-    
-    if (!keyWindow) {
-        LOG_WARNING(@"Não foi possível encontrar a janela principal");
-        return;
-    }
-    
-    // Inspeciona hierarquia de visões
-    [self inspectViewHierarchy:keyWindow indent:0];
-}
-
-+ (void)inspectViewHierarchy:(UIView *)view indent:(int)indent {
-    NSMutableString *indentStr = [NSMutableString string];
-    for (int i = 0; i < indent; i++) {
-        [indentStr appendString:@"  "];
-    }
-    
-    LOG_DEBUG(@"%@View: %@ (Frame: %@)", indentStr, [view class], NSStringFromCGRect(view.frame));
-    
-    // Verifica se é uma visão relacionada à câmera
-    BOOL isCameraRelated = NO;
-    
-    if ([view isKindOfClass:NSClassFromString(@"PLCameraView")] ||
-        [view isKindOfClass:NSClassFromString(@"PLPreviewView")] ||
-        [view isKindOfClass:NSClassFromString(@"CAMViewfinderView")] ||
-        [view isKindOfClass:NSClassFromString(@"CAMPreviewView")]) {
-        isCameraRelated = YES;
-    }
-    
-    // Analisa a camada se for view relacionada à câmera
-    if (isCameraRelated || [view.layer isKindOfClass:[AVCaptureVideoPreviewLayer class]]) {
-        LOG_INFO(@"%@⭐️ VISÃO DE CÂMERA ENCONTRADA: %@", indentStr, [view class]);
-        [self inspectLayerHierarchy:view.layer indent:indent+1];
-    }
-    
-    // Recursivamente inspeciona subviews
-    for (UIView *subview in view.subviews) {
-        [self inspectViewHierarchy:subview indent:indent+1];
-    }
-}
-
-+ (void)inspectLayerHierarchy:(CALayer *)layer indent:(int)indent {
-    NSMutableString *indentStr = [NSMutableString string];
-    for (int i = 0; i < indent; i++) {
-        [indentStr appendString:@"  "];
-    }
-    
-    LOG_DEBUG(@"%@Layer: %@ (Frame: %@)", indentStr, [layer class], NSStringFromCGRect(layer.frame));
-    
-    // Verifica se é uma camada de preview de câmera
-    if ([layer isKindOfClass:[AVCaptureVideoPreviewLayer class]]) {
-        AVCaptureVideoPreviewLayer *previewLayer = (AVCaptureVideoPreviewLayer *)layer;
-        LOG_INFO(@"%@⭐️ AVCaptureVideoPreviewLayer: %p", indentStr, previewLayer);
-        LOG_INFO(@"%@  Sessão: %@", indentStr, previewLayer.session);
-        
-        if (previewLayer.connection) {
-            LOG_INFO(@"%@  Conexão: %p", indentStr, previewLayer.connection);
-            LOG_INFO(@"%@    Enabled: %d", indentStr, previewLayer.connection.enabled);
-            LOG_INFO(@"%@    Video Orientation: %ld", indentStr, (long)previewLayer.connection.videoOrientation);
-            LOG_INFO(@"%@    Video Mirrored: %d", indentStr, previewLayer.connection.videoMirrored);
-        }
-        
-        LOG_INFO(@"%@  Gravity: %@", indentStr, previewLayer.videoGravity);
-        
-        // Registra a sessão se não estiver registrada
-        if (previewLayer.session) {
-            NSString *sessionKey = [NSString stringWithFormat:@"%p", previewLayer.session];
-            if (!activeSessions[sessionKey]) {
-                activeSessions[sessionKey] = previewLayer.session;
-                [self analyzeSession:previewLayer.session];
-            }
-        }
-    }
-    
-    // Recursivamente inspeciona sublayers
-    for (CALayer *sublayer in layer.sublayers) {
-        [self inspectLayerHierarchy:sublayer indent:indent+1];
-    }
-}
-
-+ (void)analyzeBuffer:(CMSampleBufferRef)sampleBuffer fromOutput:(AVCaptureOutput *)output connection:(AVCaptureConnection *)connection {
-    if (!sampleBuffer || !CMSampleBufferIsValid(sampleBuffer)) {
-        return;
-    }
-    
-    bufferCounter++;
-    
-    // Log a cada 30 frames (aprox. 1s a 30 FPS) para não sobrecarregar
-    if (bufferCounter % 30 != 0) {
-        return;
-    }
-    
-    [bufferLock lock];
-    
-    LOG_INFO(@"====== ANÁLISE DE BUFFER DE AMOSTRA ======");
-    LOG_INFO(@"Buffer: %@", DescribeBuffer(sampleBuffer));
-    
-    // Informações de tempo
-    CMTime pts = CMSampleBufferGetPresentationTimeStamp(sampleBuffer);
-    CMTime dts = CMSampleBufferGetDecodeTimeStamp(sampleBuffer);
-    CMTime duration = CMSampleBufferGetDuration(sampleBuffer);
-    
-    LOG_INFO(@"Tempo: PTS=%.3fs, DTS=%.3fs, Duration=%.3fs",
-           CMTimeGetSeconds(pts), CMTimeGetSeconds(dts), CMTimeGetSeconds(duration));
-    
-    // Formato
-    CMFormatDescriptionRef formatDesc = CMSampleBufferGetFormatDescription(sampleBuffer);
-    if (formatDesc) {
-        FourCharCode mediaType = CMFormatDescriptionGetMediaType(formatDesc);
-        FourCharCode mediaSubType = CMFormatDescriptionGetMediaSubType(formatDesc);
-        LOG_INFO(@"Formato: Type=%@, SubType=%@",
-               DescribePixelFormat(mediaType), DescribePixelFormat(mediaSubType));
-        
-        // Para vídeo, obter dimensões
-        if (mediaType == kCMMediaType_Video) {
-            CMVideoDimensions dimensions = CMVideoFormatDescriptionGetDimensions(formatDesc);
-            LOG_INFO(@"Dimensões: %dx%d", dimensions.width, dimensions.height);
-        }
-    }
-    
-    // Imagem
-    CVImageBufferRef imageBuffer = CMSampleBufferGetImageBuffer(sampleBuffer);
-    if (imageBuffer) {
-        size_t width = CVPixelBufferGetWidth(imageBuffer);
-        size_t height = CVPixelBufferGetHeight(imageBuffer);
-        OSType pixelFormat = CVPixelBufferGetPixelFormatType(imageBuffer);
-        size_t bytesPerRow = CVPixelBufferGetBytesPerRow(imageBuffer);
-        size_t dataSize = CVPixelBufferGetDataSize(imageBuffer);
-        
-        LOG_INFO(@"ImageBuffer: %zux%zu, Format=%@, BytesPerRow=%zu, DataSize=%zu",
-               width, height, DescribePixelFormat(pixelFormat), bytesPerRow, dataSize);
-        
-        // Informações sobre planes para formatos planares
-        size_t planeCount = CVPixelBufferGetPlaneCount(imageBuffer);
-        if (planeCount > 0) {
-            LOG_INFO(@"Planes: %zu", planeCount);
-            for (size_t i = 0; i < planeCount; i++) {
-                size_t planeWidth = CVPixelBufferGetWidthOfPlane(imageBuffer, i);
-                size_t planeHeight = CVPixelBufferGetHeightOfPlane(imageBuffer, i);
-                size_t planeBytesPerRow = CVPixelBufferGetBytesPerRowOfPlane(imageBuffer, i);
+    // Verificar objetos associados à sessão para análise de contexto
+    objc_property_t *properties = class_copyPropertyList([session class], NULL);
+    if (properties) {
+        unsigned int count = 0;
+        while (properties[count]) {
+            objc_property_t property = properties[count];
+            const char *propertyName = property_getName(property);
+            NSString *name = [NSString stringWithUTF8String:propertyName];
+            
+            // Tentar acessar propriedades públicas e privadas conhecidas
+            if ([name isEqualToString:@"running"] || 
+                [name isEqualToString:@"interrupted"] || 
+                [name isEqualToString:@"_sessionPreset"] || 
+                [name isEqualToString:@"_inputs"] || 
+                [name isEqualToString:@"_outputs"]) {
                 
-                LOG_INFO(@"  Plane %zu: %zux%zu, BytesPerRow=%zu",
-                       i, planeWidth, planeHeight, planeBytesPerRow);
-            }
-        }
-        
-        // Attachments
-        CFDictionaryRef attachments = CVBufferGetAttachments(imageBuffer, kCVAttachmentMode_ShouldPropagate);
-        if (attachments && CFDictionaryGetCount(attachments) > 0) {
-            LOG_INFO(@"ImageBuffer Attachments: %ld", CFDictionaryGetCount(attachments));
-        }
-    }
-    
-    // Attachments do buffer
-    CFArrayRef sampleAttachments = CMSampleBufferGetSampleAttachmentsArray(sampleBuffer, false);
-    if (sampleAttachments && CFArrayGetCount(sampleAttachments) > 0) {
-        LOG_INFO(@"Sample Attachments: %ld", CFArrayGetCount(sampleAttachments));
-        
-        CFDictionaryRef attachmentDict = (CFDictionaryRef)CFArrayGetValueAtIndex(sampleAttachments, 0);
-        if (attachmentDict) {
-            // Verifica alguns attachments comuns
-            CFBooleanRef notSync;
-            if (CFDictionaryGetValueIfPresent(attachmentDict, kCMSampleAttachmentKey_NotSync, (const void **)&notSync)) {
-                LOG_INFO(@"  NotSync: %d", notSync == kCFBooleanTrue);
+                LOG_DEBUG(@"  Propriedade encontrada: %@", name);
             }
             
-            CFBooleanRef partialSync;
-            if (CFDictionaryGetValueIfPresent(attachmentDict, kCMSampleAttachmentKey_PartialSync, (const void **)&partialSync)) {
-                LOG_INFO(@"  PartialSync: %d", partialSync == kCFBooleanTrue);
+            count++;
+        }
+        free(properties);
+    }
+    
+    // Verificar objetos associados via Objective-C runtime
+    // Isso pode revelar conexões ocultas com outras classes
+    unsigned int outCount;
+    Ivar *ivars = class_copyIvarList([session class], &outCount);
+    if (ivars) {
+        for (unsigned int i = 0; i < outCount; i++) {
+            Ivar ivar = ivars[i];
+            const char *ivarName = ivar_getName(ivar);
+            if (ivarName) {
+                LOG_DEBUG(@"  Ivar: %s", ivarName);
             }
-            
-            CFBooleanRef independentSubsamples;
-            if (CFDictionaryGetValueIfPresent(attachmentDict, kCMSampleAttachmentKey_HasRedundantCoding, (const void **)&independentSubsamples)) {
-                LOG_INFO(@"  HasRedundantCoding: %d", independentSubsamples == kCFBooleanTrue);
-            }
         }
+        free(ivars);
     }
-    
-    // Informações sobre a conexão
-    if (connection) {
-        LOG_INFO(@"Conexão: %p", connection);
-        LOG_INFO(@"  Ativa: %d", connection.enabled);
-        LOG_INFO(@"  Portas de entrada: %lu", (unsigned long)connection.inputPorts.count);
-        
-        if ([connection isVideoMirroringSupported]) {
-            LOG_INFO(@"  Espelhamento de vídeo: %d", connection.videoMirrored);
-        }
-        
-        if ([connection isVideoOrientationSupported]) {
-            LOG_INFO(@"  Orientação de vídeo: %ld", (long)connection.videoOrientation);
-        }
-    }
-    
-    // Informações sobre o output
-    if (output) {
-        LOG_INFO(@"Output: %@ (%p)", [output class], output);
-        
-        if ([output isKindOfClass:[AVCaptureVideoDataOutput class]]) {
-            AVCaptureVideoDataOutput *videoOutput = (AVCaptureVideoDataOutput *)output;
-            LOG_INFO(@"  VideoDataOutput Settings: %@", videoOutput.videoSettings);
-            LOG_INFO(@"  Delegate: %@ (%p)", [videoOutput.sampleBufferDelegate class], videoOutput.sampleBufferDelegate);
-            LOG_INFO(@"  Queue: %@", videoOutput.sampleBufferCallbackQueue);
-        }
-    }
-    
-    // Backtrace para ver a pilha de chamadas
-    PrintBacktrace();
-    
-    [bufferLock unlock];
 }
-
-@end
-
-%hook AVCaptureSession
-
-- (void)startRunning {
-    LOG_INFO(@"⚡️ AVCaptureSession startRunning: %p", self);
-    PrintBacktrace();
-    %orig;
-}
-
-- (void)stopRunning {
-    LOG_INFO(@"⚡️ AVCaptureSession stopRunning: %p", self);
-    PrintBacktrace();
-    %orig;
-}
-
-- (BOOL)addInput:(AVCaptureInput *)input {
-    LOG_INFO(@"⚡️ AVCaptureSession addInput: %@ (%p)", [input class], input);
-    
-    if ([input isKindOfClass:[AVCaptureDeviceInput class]]) {
-        AVCaptureDeviceInput *deviceInput = (AVCaptureDeviceInput *)input;
-        LOG_INFO(@"  Dispositivo: %@, Posição: %ld", deviceInput.device.localizedName, (long)deviceInput.device.position);
-    }
-    
-    BOOL result = %orig;
-    LOG_INFO(@"  Resultado: %d", result);
-    return result;
-}
-
-- (void)removeInput:(AVCaptureInput *)input {
-    LOG_INFO(@"⚡️ AVCaptureSession removeInput: %@ (%p)", [input class], input);
-    %orig;
-}
-
-- (BOOL)addOutput:(AVCaptureOutput *)output {
-    LOG_INFO(@"⚡️ AVCaptureSession addOutput: %@ (%p)", [output class], output);
-    
-    BOOL result = %orig;
-    LOG_INFO(@"  Resultado: %d", result);
-    return result;
-}
-
-- (void)removeOutput:(AVCaptureOutput *)output {
-    LOG_INFO(@"⚡️ AVCaptureSession removeOutput: %@ (%p)", [output class], output);
-    %orig;
-}
-
-- (void)beginConfiguration {
-    LOG_INFO(@"⚡️ AVCaptureSession beginConfiguration: %p", self);
-    %orig;
-}
-
-- (void)commitConfiguration {
-    LOG_INFO(@"⚡️ AVCaptureSession commitConfiguration: %p", self);
-    %orig;
-    
-    // Bom momento para analisar a configuração atualizada
-    [NSObject analyzeSession:self];
-}
-
-%end
-
-%hook AVCaptureVideoPreviewLayer
-
-- (id)initWithSession:(AVCaptureSession *)session {
-    LOG_INFO(@"⚡️ AVCaptureVideoPreviewLayer initWithSession: %p", session);
-    id result = %orig;
-    LOG_INFO(@"  Resultado: %@ (%p)", [result class], result);
-    return result;
-}
-
-- (void)setSession:(AVCaptureSession *)session {
-    LOG_INFO(@"⚡️ AVCaptureVideoPreviewLayer setSession: %p", session);
-    %orig;
-}
-
-- (void)setVideoGravity:(AVLayerVideoGravity)videoGravity {
-    LOG_INFO(@"⚡️ AVCaptureVideoPreviewLayer setVideoGravity: %@", videoGravity);
-    %orig;
-}
-
-%end
-
-%hook AVCaptureDevice
-
-+ (NSArray<AVCaptureDevice *> *)devicesWithMediaType:(AVMediaType)mediaType {
-    NSArray<AVCaptureDevice *> *devices = %orig;
-    LOG_INFO(@"⚡️ AVCaptureDevice devicesWithMediaType: %@, Encontrados: %lu", mediaType, (unsigned long)devices.count);
-    
-    for (AVCaptureDevice *device in devices) {
-        LOG_INFO(@"  Dispositivo: %@, Posição: %ld", device.localizedName, (long)device.position);
-    }
-    
-    return devices;
-}
-
-+ (AVCaptureDevice *)defaultDeviceWithMediaType:(AVMediaType)mediaType {
-    AVCaptureDevice *device = %orig;
-    LOG_INFO(@"⚡️ AVCaptureDevice defaultDeviceWithMediaType: %@, Resultado: %@", mediaType, device.localizedName);
-    return device;
-}
-
-- (BOOL)lockForConfiguration:(NSError **)outError {
-    BOOL result = %orig;
-    LOG_INFO(@"⚡️ AVCaptureDevice lockForConfiguration: %@, Resultado: %d", self.localizedName, result);
-    return result;
-}
-
-- (void)unlockForConfiguration {
-    LOG_INFO(@"⚡️ AVCaptureDevice unlockForConfiguration: %@", self.localizedName);
-    %orig;
-}
-
-%end
-
-// Hook no método principais do delegado
-%hook NSObject
-
-// Verifica dinamicamente se a classe implementa o método do delegado
-- (BOOL)respondsToSelector:(SEL)aSelector {
-    BOOL result = %orig;
-    
-    if (result && aSelector == @selector(captureOutput:didOutputSampleBuffer:fromConnection:)) {
-        static dispatch_once_t onceToken;
-        dispatch_once(&onceToken, ^{
-            LOG_INFO(@"Detectado delegado AVCaptureVideoDataOutputSampleBufferDelegate: %@", [self class]);
-        });
-    }
-    
-    return result;
-}
-
-%end
