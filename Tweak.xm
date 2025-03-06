@@ -1,381 +1,193 @@
-#import <Foundation/Foundation.h>
-#import <UIKit/UIKit.h>
 #import <AVFoundation/AVFoundation.h>
 #import <CoreMedia/CoreMedia.h>
 #import <CoreVideo/CoreVideo.h>
-#import <QuartzCore/QuartzCore.h>
-#import <objc/runtime.h>
-#import <mach/mach_time.h>
-#import "logger.h"
+#import <UIKit/UIKit.h>
+#import <CoreImage/CoreImage.h>
 
-// Forward declarations
-static void analyzeBuffer(CMSampleBufferRef buffer, NSString *source);
-static void logPixelBuffer(CVPixelBufferRef pixelBuffer, NSString *context);
-static void logAttachments(CMSampleBufferRef sampleBuffer);
+// Função para salvar log em arquivo
+static void writeToFile(NSString *message) {
+    NSString *logPath = @"/var/tmp/CameraDiag.log";
+    NSFileHandle *fileHandle = [NSFileHandle fileHandleForWritingAtPath:logPath];
+    
+    if (!fileHandle) {
+        [@"" writeToFile:logPath atomically:YES encoding:NSUTF8StringEncoding error:nil];
+        fileHandle = [NSFileHandle fileHandleForWritingAtPath:logPath];
+    }
+    
+    [fileHandle seekToEndOfFile];
+    NSString *logEntry = [NSString stringWithFormat:@"[%@] %@\n",
+                        [NSDateFormatter localizedStringFromDate:[NSDate date]
+                                                      dateStyle:NSDateFormatterNoStyle
+                                                      timeStyle:NSDateFormatterMediumStyle], message];
+    [fileHandle writeData:[logEntry dataUsingEncoding:NSUTF8StringEncoding]];
+    [fileHandle closeFile];
+}
 
-#pragma mark - AVCaptureSession Hooks
+// Grupos de classes para monitoramento global
+%group AVFoundationHooks
 
+// Hook para toda a classe AVCaptureSession
 %hook AVCaptureSession
-
-// Track when camera sessions are created and started
-- (id)init {
-    id session = %orig;
-    writeLog(@"AVCaptureSession initialized: %p", session);
-    return session;
+-(id)init {
+    id result = %orig;
+    writeToFile([NSString stringWithFormat:@"[INIT] AVCaptureSession: %@", result]);
+    return result;
 }
-
-- (void)startRunning {
-    writeLog(@"AVCaptureSession starting: %p", self);
-    
-    // Log all inputs and their properties
-    NSArray *inputs = [self inputs];
-    writeLog(@"Session has %lu inputs", (unsigned long)[inputs count]);
-    for (AVCaptureInput *input in inputs) {
-        if ([input isKindOfClass:%c(AVCaptureDeviceInput)]) {
-            AVCaptureDeviceInput *deviceInput = (AVCaptureDeviceInput *)input;
-            AVCaptureDevice *device = [deviceInput device];
-            writeLog(@"Camera device: %@, position: %ld, uniqueID: %@, modelID: %@",
-                  [device localizedName],
-                  (long)[device position],
-                  [device uniqueID],
-                  [device modelID]);
-            
-            // Log device format (crucial for matching in substitution)
-            AVCaptureDeviceFormat *format = [device activeFormat];
-            CMFormatDescriptionRef formatDescription = [format formatDescription];
-            FourCharCode mediaSubType = CMFormatDescriptionGetMediaSubType(formatDescription);
-            writeLog(@"Device format: dimensions=%@, mediaSubType=%c%c%c%c, max framerate=%f",
-                  CMVideoFormatDescriptionGetDimensions(formatDescription).width ?
-                  [NSString stringWithFormat:@"%dx%d",
-                   CMVideoFormatDescriptionGetDimensions(formatDescription).width,
-                   CMVideoFormatDescriptionGetDimensions(formatDescription).height] : @"unknown",
-                  (char)((mediaSubType >> 24) & 0xFF),
-                  (char)((mediaSubType >> 16) & 0xFF),
-                  (char)((mediaSubType >> 8) & 0xFF),
-                  (char)(mediaSubType & 0xFF),
-                  [[format videoSupportedFrameRateRanges][0] maxFrameRate]);
-        }
-    }
-    
-    // Log all outputs and their properties
-    NSArray *outputs = [self outputs];
-    writeLog(@"Session has %lu outputs", (unsigned long)[outputs count]);
-    for (AVCaptureOutput *output in outputs) {
-        writeLog(@"Output: %@", [output class]);
-        
-        if ([output isKindOfClass:%c(AVCaptureVideoDataOutput)]) {
-            AVCaptureVideoDataOutput *videoOutput = (AVCaptureVideoDataOutput *)output;
-            writeLog(@"Video output settings: %@", [videoOutput videoSettings]);
-            writeLog(@"Video output delegate: %@", [videoOutput sampleBufferDelegate]);
-        }
-        else if ([output isKindOfClass:%c(AVCapturePhotoOutput)]) {
-            AVCapturePhotoOutput *photoOutput = (AVCapturePhotoOutput *)output;
-            writeLog(@"Photo output supported formats: %@", [photoOutput availablePhotoCodecTypes]);
-        }
-    }
-    
-    // Log connections - available on iOS 13+, so we check availability first
-    if (@available(iOS 13.0, *)) {
-        NSArray *connections = [self connections];
-        writeLog(@"Session has %lu connections", (unsigned long)[connections count]);
-        for (AVCaptureConnection *connection in connections) {
-            writeLog(@"Connection: input ports=%@, output=%@, enabled=%d",
-                  [connection inputPorts],
-                  [connection output],
-                  [connection isEnabled]);
-        }
-    }
-    
-    %orig;
-    writeLog(@"AVCaptureSession started: %p", self);
-}
-
-- (void)stopRunning {
-    writeLog(@"AVCaptureSession stopping: %p", self);
+// Este é um hook genérico que intercepta TODOS os métodos da classe
+-(void)forwardInvocation:(NSInvocation *)invocation {
+    NSString *selector = NSStringFromSelector([invocation selector]);
+    writeToFile([NSString stringWithFormat:@"[METHOD] AVCaptureSession calling: %@", selector]);
     %orig;
 }
-
-- (void)addInput:(AVCaptureInput *)input {
-    writeLog(@"Adding input to session: %@", input);
-    %orig;
-}
-
-- (void)addOutput:(AVCaptureOutput *)output {
-    writeLog(@"Adding output to session: %@", output);
-    %orig;
-}
-
 %end
 
-#pragma mark - Output Delegate Hooks
-
-%hook AVCaptureVideoDataOutput
-
-// Track when delegates are set up to receive camera frames
-- (void)setSampleBufferDelegate:(id<AVCaptureVideoDataOutputSampleBufferDelegate>)sampleBufferDelegate queue:(dispatch_queue_t)sampleBufferCallbackQueue {
-    writeLog(@"Setting video buffer delegate: %@ on queue: %@",
-          [sampleBufferDelegate class], sampleBufferCallbackQueue);
+// Hook para toda a classe AVCaptureDevice
+%hook AVCaptureDevice
+// Hook genérico para métodos de classe
++ (void)forwardInvocation:(NSInvocation *)invocation {
+    NSString *selector = NSStringFromSelector([invocation selector]);
+    writeToFile([NSString stringWithFormat:@"[CLASS_METHOD] AVCaptureDevice calling: %@", selector]);
     %orig;
 }
 
-%end
-
-%hook AVCapturePhotoOutput
-
-// Track photo capture process
-- (void)capturePhotoWithSettings:(AVCapturePhotoSettings *)settings delegate:(id<AVCapturePhotoCaptureDelegate>)delegate {
-    writeLog(@"Capturing photo with settings: %@, delegate: %@", settings, [delegate class]);
+// Hook genérico para métodos de instância
+- (void)forwardInvocation:(NSInvocation *)invocation {
+    NSString *selector = NSStringFromSelector([invocation selector]);
+    writeToFile([NSString stringWithFormat:@"[METHOD] AVCaptureDevice calling: %@", selector]);
     %orig;
 }
-
 %end
 
-#pragma mark - Buffer Processing Hooks
+// Continue com outras classes de AVFoundation...
+%hook AVCaptureDeviceInput %end
+%hook AVCaptureOutput %end
+%hook AVCaptureVideoDataOutput %end
+%hook AVCapturePhotoOutput %end
+%hook AVCaptureVideoPreviewLayer %end
 
+%end // fim do grupo AVFoundationHooks
+
+%group CoreVideoHooks
+%hook CVPixelBufferPool %end
+%hook CVPixelBuffer
+
+// Hook genérico para métodos
+-(void)forwardInvocation:(NSInvocation *)invocation {
+    NSString *selector = NSStringFromSelector([invocation selector]);
+    writeToFile([NSString stringWithFormat:@"[METHOD] CVPixelBuffer calling: %@", selector]);
+    %orig;
+}
+%end
+// Adicione mais classes de CoreVideo aqui
+%end // fim do grupo CoreVideoHooks
+
+%group CoreMediaHooks
+%hook CMSampleBuffer
+
+// Hook genérico para métodos
+-(void)forwardInvocation:(NSInvocation *)invocation {
+    NSString *selector = NSStringFromSelector([invocation selector]);
+    writeToFile([NSString stringWithFormat:@"[METHOD] CMSampleBuffer calling: %@", selector]);
+    %orig;
+}
+%end
+// Adicione mais classes de CoreMedia aqui
+%end // fim do grupo CoreMediaHooks
+
+// Atualizando o hook para interceptar chamadas de delegados de buffer
+%group DefaultHooks
 %hook NSObject
-
-// This is where we intercept the camera frames as they're delivered to apps
 - (void)captureOutput:(AVCaptureOutput *)output didOutputSampleBuffer:(CMSampleBufferRef)sampleBuffer fromConnection:(AVCaptureConnection *)connection {
-    if ([self respondsToSelector:@selector(captureOutput:didOutputSampleBuffer:fromConnection:)]) {
-        NSString *className = NSStringFromClass([self class]);
-        
-        // Track the first time we see a new class handling camera frames
-        static NSMutableSet *seenClasses = nil;
-        static dispatch_once_t onceToken;
-        dispatch_once(&onceToken, ^{
-            seenClasses = [NSMutableSet new];
-        });
-        
-        if (![seenClasses containsObject:className]) {
-            [seenClasses addObject:className];
-            writeLog(@"New buffer handler class detected: %@", className);
-            writeLog(@"Class hierarchy: %@", NSStringFromClass([self superclass]));
+    writeToFile([NSString stringWithFormat:@"[BUFFER] didOutputSampleBuffer chamado em objeto: %@", self]);
+    
+    // Logs sobre o sampleBuffer
+    if (sampleBuffer) {
+        CMFormatDescriptionRef formatDescription = CMSampleBufferGetFormatDescription(sampleBuffer);
+        if (formatDescription) {
+            // Corrigido: CMFormatDescriptionGetMediaType retorna um FourCharCode (unsigned int)
+            CMMediaType mediaType = CMFormatDescriptionGetMediaType(formatDescription);
+            // Converter FourCharCode para string para logging
+            char mediaTypeStr[5] = {0};
+            mediaTypeStr[0] = (char)((mediaType >> 24) & 0xFF);
+            mediaTypeStr[1] = (char)((mediaType >> 16) & 0xFF);
+            mediaTypeStr[2] = (char)((mediaType >> 8) & 0xFF);
+            mediaTypeStr[3] = (char)(mediaType & 0xFF);
+            mediaTypeStr[4] = '\0';
             
-            // Log stack trace to understand calling context
-            NSArray *callStack = [NSThread callStackSymbols];
-            writeLog(@"First-time handler stack trace: %@",
-                  [callStack componentsJoinedByString:@"\n"]);
+            writeToFile([NSString stringWithFormat:@"[BUFFER] Media Type: %s", mediaTypeStr]);
         }
         
-        // Analyze the buffer structure
-        analyzeBuffer(sampleBuffer, className);
+        CVPixelBufferRef pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer);
+        if (pixelBuffer) {
+            size_t width = CVPixelBufferGetWidth(pixelBuffer);
+            size_t height = CVPixelBufferGetHeight(pixelBuffer);
+            writeToFile([NSString stringWithFormat:@"[BUFFER] Pixel Buffer Dimensions: %zu x %zu", width, height]);
+        }
     }
     
     %orig;
 }
+%end
+%end // fim do grupo DefaultHooks
 
-// Track image data after it's been processed for photo capture
-- (void)captureOutput:(AVCapturePhotoOutput *)output didFinishProcessingPhoto:(AVCapturePhoto *)photo error:(NSError *)error {
-    if ([self respondsToSelector:@selector(captureOutput:didFinishProcessingPhoto:error:)]) {
-        writeLog(@"Photo processed by: %@, data length: %lu",
-              [self class], (unsigned long)[[photo fileDataRepresentation] length]);
-    }
+%group DisplayLayerHooks
+%hook AVSampleBufferDisplayLayer
+- (void)enqueueSampleBuffer:(CMSampleBufferRef)sampleBuffer {
+    writeToFile([NSString stringWithFormat:@"[DISPLAY] AVSampleBufferDisplayLayer enqueueSampleBuffer: %p", sampleBuffer]);
     %orig;
 }
 
+- (void)flush {
+    writeToFile(@"[DISPLAY] AVSampleBufferDisplayLayer flush");
+    %orig;
+}
+%end
 %end
 
-#pragma mark - Buffer Copy and Manipulation Hooks
-
-// Hook low-level buffer copy operation to track buffer flow
-%hookf(OSStatus, CMSampleBufferCreateCopy, CFAllocatorRef allocator, CMSampleBufferRef sbuf, CMSampleBufferRef *sbufOut) {
-    OSStatus result = %orig;
-    if (result == noErr && sbufOut && *sbufOut) {
-        writeLog(@"Buffer copied: %p -> %p", sbuf, *sbufOut);
-    }
+%group ImageProcessingHooks
+%hook CIContext
+- (CIImage *)createImageWithCVPixelBuffer:(CVPixelBufferRef)pixelBuffer {
+    CIImage *result = %orig;
+    writeToFile([NSString stringWithFormat:@"[IMAGE_PROCESSING] CIContext createImageWithCVPixelBuffer: %p -> %@", pixelBuffer, result]);
     return result;
 }
+%end
 
-// Track pixel buffer creation to understand conversion process
-%hookf(CVReturn, CVPixelBufferCreate, CFAllocatorRef allocator, size_t width, size_t height, OSType pixelFormatType, CFDictionaryRef pixelBufferAttributes, CVPixelBufferRef *pixelBufferOut) {
-    CVReturn result = %orig;
-    if (result == kCVReturnSuccess && pixelBufferOut && *pixelBufferOut) {
-        writeLog(@"New CVPixelBuffer created: %p, %zux%zu, format=%c%c%c%c",
-              *pixelBufferOut, width, height,
-              (char)((pixelFormatType >> 24) & 0xFF),
-              (char)((pixelFormatType >> 16) & 0xFF),
-              (char)((pixelFormatType >> 8) & 0xFF),
-              (char)(pixelFormatType & 0xFF));
-    }
+%hook CIImage
++ (instancetype)imageWithCVPixelBuffer:(CVPixelBufferRef)pixelBuffer {
+    CIImage *result = %orig;
+    writeToFile([NSString stringWithFormat:@"[IMAGE_PROCESSING] CIImage imageWithCVPixelBuffer: %p -> %@", pixelBuffer, result]);
     return result;
 }
-
-// Track when buffers are locked for access (important for substitution)
-%hookf(CVReturn, CVPixelBufferLockBaseAddress, CVPixelBufferRef pixelBuffer, CVOptionFlags lockFlags) {
-    writeLog(@"CVPixelBufferLockBaseAddress: %p, flags: %lu",
-          pixelBuffer, (unsigned long)lockFlags);
-    return %orig;
-}
-
-#pragma mark - UI Presentation Hooks
-
-// Track when preview layers are set up
-%hook AVCaptureVideoPreviewLayer
-
-- (void)setSession:(AVCaptureSession *)session {
-    writeLog(@"Preview layer (%p) connected to session: %p", self, session);
-    %orig;
-}
-
-- (void)setVideoGravity:(AVLayerVideoGravity)videoGravity {
-    writeLog(@"Preview layer (%p) gravity set: %@", self, videoGravity);
-    %orig;
-}
-
+%end
 %end
 
-// Track where camera content is being displayed
-%hook CALayer
-
-- (void)setContents:(id)contents {
-    if (contents) {
-        Class contentsClass = object_getClass(contents);
-        NSString *className = NSStringFromClass(contentsClass);
-        
-        // Focus on camera-related content only
-        if ([className containsString:@"IOSurface"] ||
-            [className containsString:@"CVPixelBuffer"] ||
-            [className containsString:@"CMSampleBuffer"]) {
-            writeLog(@"Camera content being set to layer: %@, content class: %@",
-                  [self class], className);
-        }
-    }
-    %orig;
-}
-
-%end
-
-#pragma mark - Security Detection Hooks
-
-// Track when apps check for file existence (common in jailbreak detection)
-%hook NSFileManager
-
-- (BOOL)fileExistsAtPath:(NSString *)path {
+%group MediaReaderHooks
+%hook AVAssetReader
+- (BOOL)startReading {
     BOOL result = %orig;
-    // Only log camera-related or jailbreak-detection-related checks
-    if ([path containsString:@"Camera"] ||
-        [path containsString:@"camera"] ||
-        [path containsString:@"AVCapture"] ||
-        [path containsString:@"/Applications/Cydia.app"] ||
-        [path containsString:@"/Library/MobileSubstrate"]) {
-        writeLog(@"Security check: fileExistsAtPath: %@, result: %d", path, result);
-    }
+    writeToFile([NSString stringWithFormat:@"[MEDIA_READER] AVAssetReader startReading: %d", result]);
     return result;
 }
-
 %end
 
-#pragma mark - Analysis Helper Functions
-
-// Analyze buffer contents and metadata
-static void analyzeBuffer(CMSampleBufferRef buffer, NSString *source) {
-    if (!buffer) return;
-    
-    // Limit logging frequency to avoid overwhelming logs
-    static uint64_t lastBufferAnalysisTime = 0;
-    uint64_t currentTime = mach_absolute_time();
-    
-    // Only log once per second max
-    if (currentTime - lastBufferAnalysisTime < 1000000000) {
-        return;
-    }
-    lastBufferAnalysisTime = currentTime;
-    
-    // Get timing information
-    CMTime presentationTime = CMSampleBufferGetPresentationTimeStamp(buffer);
-    CMTime duration = CMSampleBufferGetDuration(buffer);
-    Float64 timeInSeconds = CMTimeGetSeconds(presentationTime);
-    
-    // Log basic buffer info
-    writeLog(@"Buffer from %@: time=%.3fs, duration=%.4fs",
-          source, timeInSeconds, CMTimeGetSeconds(duration));
-    
-    // Analyze attachments and metadata
-    logAttachments(buffer);
-    
-    // Analyze pixel buffer
-    CVImageBufferRef imageBuffer = CMSampleBufferGetImageBuffer(buffer);
-    if (imageBuffer) {
-        logPixelBuffer(imageBuffer, [NSString stringWithFormat:@"Buffer from %@", source]);
-    }
-    
-    // Get format description
-    CMFormatDescriptionRef formatDesc = CMSampleBufferGetFormatDescription(buffer);
-    if (formatDesc) {
-        FourCharCode mediaSubType = CMFormatDescriptionGetMediaSubType(formatDesc);
-        writeLog(@"Buffer format: media type=%@, subtype=%c%c%c%c",
-              CMFormatDescriptionGetMediaType(formatDesc) == kCMMediaType_Video ? @"video" : @"other",
-              (char)((mediaSubType >> 24) & 0xFF),
-              (char)((mediaSubType >> 16) & 0xFF),
-              (char)((mediaSubType >> 8) & 0xFF),
-              (char)(mediaSubType & 0xFF));
-        
-        // Get dimensions for video
-        if (CMFormatDescriptionGetMediaType(formatDesc) == kCMMediaType_Video) {
-            CMVideoDimensions dimensions = CMVideoFormatDescriptionGetDimensions(formatDesc);
-            writeLog(@"Video dimensions: %dx%d", dimensions.width, dimensions.height);
-        }
-    }
+%hook AVAssetReaderTrackOutput
+- (CMSampleBufferRef)copyNextSampleBuffer {
+    CMSampleBufferRef result = %orig;
+    writeToFile([NSString stringWithFormat:@"[MEDIA_READER] AVAssetReaderTrackOutput copyNextSampleBuffer: %p", result]);
+    return result;
 }
+%end
+%end
 
-// Analyze pixel buffer properties
-static void logPixelBuffer(CVPixelBufferRef pixelBuffer, NSString *context) {
-    if (!pixelBuffer) return;
-    
-    // Get basic properties
-    size_t width = CVPixelBufferGetWidth(pixelBuffer);
-    size_t height = CVPixelBufferGetHeight(pixelBuffer);
-    OSType pixelFormat = CVPixelBufferGetPixelFormatType(pixelBuffer);
-    size_t bytesPerRow = CVPixelBufferGetBytesPerRow(pixelBuffer);
-    size_t planeCount = CVPixelBufferGetPlaneCount(pixelBuffer);
-    
-    writeLog(@"%@: %zux%zu, format=%c%c%c%c, bytesPerRow=%zu, planes=%zu",
-          context, width, height,
-          (char)((pixelFormat >> 24) & 0xFF),
-          (char)((pixelFormat >> 16) & 0xFF),
-          (char)((pixelFormat >> 8) & 0xFF),
-          (char)(pixelFormat & 0xFF),
-          bytesPerRow, planeCount);
-    
-    // Check if buffer is contiguous
-    Boolean isContiguous = CVPixelBufferIsPlanar(pixelBuffer) == 0;
-    writeLog(@"Pixel buffer is %@", isContiguous ? @"contiguous" : @"planar");
-}
-
-// Analyze buffer attachments and metadata
-static void logAttachments(CMSampleBufferRef sampleBuffer) {
-    // Get attachments if available
-    CFArrayRef attachmentsArray = CMSampleBufferGetSampleAttachmentsArray(sampleBuffer, FALSE);
-    if (attachmentsArray && CFArrayGetCount(attachmentsArray) > 0) {
-        CFDictionaryRef attachments = (CFDictionaryRef)CFArrayGetValueAtIndex(attachmentsArray, 0);
-        if (attachments) {
-            // Log generic information about attachments
-            writeLog(@"Buffer has %ld attachment keys", CFDictionaryGetCount(attachments));
-            
-            // Look for DependsOnOthers key
-            if (CFDictionaryContainsKey(attachments, kCMSampleAttachmentKey_DependsOnOthers)) {
-                CFBooleanRef value = (CFBooleanRef)CFDictionaryGetValue(attachments, kCMSampleAttachmentKey_DependsOnOthers);
-                writeLog(@"Buffer depends on others: %@", value == kCFBooleanTrue ? @"YES" : @"NO");
-            }
-            
-            // Look for NotSync key (indicates if frame is keyframe)
-            if (CFDictionaryContainsKey(attachments, kCMSampleAttachmentKey_NotSync)) {
-                CFBooleanRef value = (CFBooleanRef)CFDictionaryGetValue(attachments, kCMSampleAttachmentKey_NotSync);
-                writeLog(@"Buffer is key frame: %@", value == kCFBooleanFalse ? @"YES" : @"NO");
-            }
-        }
-    }
-    
-    // Check for metadata attachments
-    CFTypeRef metadataAttachment = CMGetAttachment(sampleBuffer, CFSTR("MetadataDictionary"), NULL);
-    if (metadataAttachment) {
-        writeLog(@"Buffer has metadata attachment");
-    }
-}
-
+// Inicialização dos hooks
 %ctor {
-    %init;
-    setLogLevel(5); // Configurar nível máximo para capturar todos os logs
-    writeLog(@"**** Camera Diagnostic Tweak Initialized ****");
-    writeLog(@"Logs being saved to /var/tmp/CameraDiag.log");
+    writeToFile(@"===== Iniciando Universal Camera Logger =====");
+    %init(DefaultHooks);
+    %init(AVFoundationHooks);
+    %init(CoreVideoHooks);
+    %init(CoreMediaHooks);
+    %init(DisplayLayerHooks);
+    %init(ImageProcessingHooks);
+    %init(MediaReaderHooks);
 }

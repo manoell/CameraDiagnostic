@@ -16,11 +16,13 @@ void writeLog(NSString *format, ...) {
         NSString *formattedString = [[NSString alloc] initWithFormat:format arguments:args];
         va_end(args);
         
-        // Formatar a mensagem com timestamp
+        // Formatar a mensagem com timestamp mais preciso
+        NSDateFormatter *formatter = [[NSDateFormatter alloc] init];
+        [formatter setDateFormat:@"HH:mm:ss.SSS"];
+        NSString *timestamp = [formatter stringFromDate:[NSDate date]];
+        
         NSString *logMessage = [NSString stringWithFormat:@"[%@] %@\n",
-                              [NSDateFormatter localizedStringFromDate:[NSDate date]
-                                                            dateStyle:NSDateFormatterNoStyle
-                                                            timeStyle:NSDateFormatterMediumStyle],
+                              timestamp,
                               formattedString];
         
         // Mostrar log no console (sempre)

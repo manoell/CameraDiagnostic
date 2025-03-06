@@ -1,87 +1,80 @@
-# Camera Diagnostic Tool
+# Camera Diagnostic
 
-Uma ferramenta de diagnóstico para iOS (com jailbreak) que fornece informações detalhadas sobre o funcionamento da câmera, visando identificar os pontos ideais para substituição do feed de forma indetectável e universal.
+Um tweak para diagnóstico completo do pipeline da câmera em iOS.
 
 ## Objetivo
 
-Esta ferramenta foi desenvolvida para:
+Este tweak foi desenvolvido para registrar e analisar todos os aspectos do funcionamento da câmera no iOS, com o objetivo de compreender como o sistema processa o feed da câmera. As informações coletadas serão utilizadas para criar um sistema capaz de substituir o feed da câmera de forma indetectável e universal em qualquer aplicativo.
 
-1. Diagnosticar o pipeline completo da câmera do iOS
-2. Identificar os pontos exatos onde o feed da câmera pode ser substituído
-3. Determinar quais metadados e propriedades precisam ser preservados
-4. Detectar mecanismos de segurança que poderiam identificar a substituição
-5. Fornecer insights para implementação de uma solução universal que funcione em todos os aplicativos
+## Funcionamento
 
-## Instalação
+O Camera Diagnostic monitora e registra:
 
-1. Certifique-se de ter o ambiente Theos configurado corretamente
-2. Clone este repositório
-3. Execute `make package install` para compilar e instalar o tweak
-4. Reinicie o SpringBoard (`killall -9 SpringBoard`)
+- Inicialização e configuração da sessão de câmera (AVCaptureSession)
+- Fluxo de dados de vídeo através do pipeline completo
+- Formatos, metadados e propriedades dos buffers de vídeo
+- Manipulação de imagem e processamento de frames
+- Renderização e exibição do feed da câmera na UI
+- Verificações de segurança e autenticidade do sistema
+
+## Componentes Monitorados
+
+- **AVFoundation**: Classes principais relacionadas à captura de vídeo
+- **CoreMedia**: Gerenciamento de buffers de amostra e metadados
+- **CoreVideo**: Processamento de buffers de pixel
+- **CoreImage**: Manipulação e processamento de imagens
+- **Media Readers**: Componentes para leitura de vídeos existentes
+- **Display Layers**: Camadas de exibição de vídeo
+
+## Logs
+
+Todos os logs são salvos em `/var/tmp/CameraDiag.log`. O arquivo pode ficar grande rapidamente devido à quantidade de informações capturadas.
 
 ## Como Usar
 
-1. Após a instalação, abra qualquer aplicativo que utilize a câmera
-2. Use o aplicativo normalmente para capturar informações diagnósticas
-3. Os logs são gravados no syslog do sistema
+1. Instale o tweak em seu dispositivo com jailbreak
+2. Use aplicativos que acessam a câmera (aplicativo Câmera, Instagram, Snapchat, etc.)
+3. Colete os logs para análise
+4. Use as informações para identificar pontos de intervenção para substituição do feed
 
-## Visualização de Logs
+## Análise dos Logs
 
-### Via SSH:
+Os logs contêm prefixos para facilitar a categorização:
+
+- `[INIT]` - Inicialização de objetos
+- `[METHOD]` - Chamadas de método
+- `[BUFFER]` - Informações sobre buffers de vídeo
+- `[DISPLAY]` - Operações de renderização e exibição
+- `[IMAGE_PROCESSING]` - Operações de processamento de imagem
+- `[MEDIA_READER]` - Operações de leitura de mídia
+
+## Desenvolvimento
+
+### Pré-requisitos:
+- Theos instalado
+- SDK iOS
+- Dispositivo com jailbreak para testes
+
+### Compilação:
 ```bash
-ssh root@[IP-DO-DISPOSITIVO]
-tail -f /var/log/syslog | grep CameraDiag
+make
+make package
 ```
 
-### Via macOS:
-1. Conecte o dispositivo ao Mac via USB
-2. Abra o aplicativo Console (Aplicativos > Utilitários)
-3. Selecione seu dispositivo na barra lateral
-4. Filtre por "CameraDiag"
-
-### Via dispositivo:
-- Use o NewTerm2 e execute o comando `tail -f /var/log/syslog | grep CameraDiag`
-- Ou use o Filza para navegar até `/var/log/syslog`
-
-## Interpretação dos Logs
-
-O tweak registra informações em pontos-chave do pipeline da câmera:
-
-### Pontos de Interesse:
-
-- **Inicialização da câmera**: Logs com "AVCaptureSession" mostram quando uma sessão é criada
-- **Classes manipuladoras**: "New buffer handler class detected" identifica classes que processam dados da câmera
-- **Formatos de buffer**: "Buffer format" mostra detalhes técnicos dos buffers de imagem
-- **Caminho de renderização**: "Camera content being set to layer" indica quando o conteúdo chega à UI
-- **Verificações de segurança**: "Security check" detecta verificações que podem identificar substituições
-
-### Informações Cruciais:
-
-Preste atenção especial a:
-
-1. **Sequência de chamadas**: A ordem em que os componentes são inicializados
-2. **Metadados preservados**: Propriedades que precisam ser replicadas na substituição
-3. **Caminho comum**: Pontos do pipeline presentes em todos os aplicativos
-4. **Verificações específicas**: Mecanismos que aplicativos usam para validar a autenticidade
-
-## Como Funciona
-
-O tweak utiliza o Cydia Substrate para interceptar chamadas relacionadas à câmera em vários níveis:
-
-1. **AVFoundation**: Intercepta APIs de alto nível para configuração de câmera
-2. **CoreMedia/CoreVideo**: Monitora a manipulação de buffers de imagem
-3. **Apresentação de UI**: Acompanha como os dados da câmera são renderizados na tela
-4. **Segurança**: Detecta verificações que poderiam identificar uma substituição
+### Instalação:
+```bash
+make install
+```
 
 ## Próximos Passos
 
-Após coletar informações suficientes:
+Após a coleta de dados suficientes, a próxima etapa é desenvolver um mecanismo que possa:
 
-1. Identifique o ponto ideal para interceptação (geralmente em `captureOutput:didOutputSampleBuffer:fromConnection:`)
-2. Determine os metadados e propriedades que precisam ser preservados
-3. Desenvolva um método para substituir os dados do buffer mantendo as propriedades originais
-4. Implemente verificações para evitar detecção por apps específicos
+1. Interceptar o feed da câmera no ponto ideal do pipeline
+2. Substituir os dados com um feed alternativo
+3. Preservar todos os metadados e propriedades necessários
+4. Garantir que a substituição seja indetectável pelos aplicativos
 
-## Aviso Legal
+## Notas
 
-Esta ferramenta é desenvolvida apenas para fins educacionais e de pesquisa. Utilize-a de acordo com as leis e regulamentos locais.
+Este tweak é apenas para análise e diagnóstico, não realiza nenhuma substituição efetiva do feed da câmera.
