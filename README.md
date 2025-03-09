@@ -1,80 +1,84 @@
 # Camera Diagnostic
 
-Um tweak para diagnóstico completo do pipeline da câmera em iOS.
+Um tweak para diagnóstico completo do pipeline da câmera em iOS, com foco na análise do aplicativo nativo de câmera e preparação para implementação universal.
 
 ## Objetivo
 
-Este tweak foi desenvolvido para registrar e analisar todos os aspectos do funcionamento da câmera no iOS, com o objetivo de compreender como o sistema processa o feed da câmera. As informações coletadas serão utilizadas para criar um sistema capaz de substituir o feed da câmera de forma indetectável e universal em qualquer aplicativo.
+Este tweak foi desenvolvido para registrar e analisar o funcionamento da câmera no iOS, com o objetivo de compreender como o sistema processa o feed da câmera. As informações coletadas serão utilizadas para criar um sistema capaz de substituir o feed da câmera de forma indetectável e que funcione tanto para visualização quanto para captura de fotos e vídeos.
 
-## Funcionamento
+## Status Atual
 
-O Camera Diagnostic monitora e registra:
+O tweak está funcionando perfeitamente com o aplicativo de câmera nativa do iOS, capturando informações detalhadas sobre todo o pipeline de processamento. Isso inclui:
 
-- Inicialização e configuração da sessão de câmera (AVCaptureSession)
-- Fluxo de dados de vídeo através do pipeline completo
-- Formatos, metadados e propriedades dos buffers de vídeo
-- Manipulação de imagem e processamento de frames
-- Renderização e exibição do feed da câmera na UI
-- Verificações de segurança e autenticidade do sistema
+- Inicialização e configuração da sessão
+- Troca entre câmeras frontal e traseira
+- Captura de fotos 
+- Gravação de vídeos
+- Configurações de orientação e espelhamento
+- Conexões entre componentes do sistema de câmera
 
-## Componentes Monitorados
+Para o aplicativo nativo, as informações coletadas são suficientes para implementar uma substituição completa e transparente do feed da câmera.
 
-- **AVFoundation**: Classes principais relacionadas à captura de vídeo
-- **CoreMedia**: Gerenciamento de buffers de amostra e metadados
-- **CoreVideo**: Processamento de buffers de pixel
-- **CoreImage**: Manipulação e processamento de imagens
-- **Media Readers**: Componentes para leitura de vídeos existentes
-- **Display Layers**: Camadas de exibição de vídeo
+## Pontos de Interesse Identificados
 
-## Logs
+1. **Visualização em tempo real**: O feed é processado através de `AVCaptureVideoPreviewLayer`, que recebe dados da sessão de captura e os exibe na interface.
 
-Todos os logs são salvos em `/var/tmp/CameraDiag.log`. O arquivo pode ficar grande rapidamente devido à quantidade de informações capturadas.
+2. **Captura de fotos**: Controlada por `AVCapturePhotoOutput capturePhotoWithSettings`, que especifica as configurações da foto e o delegate que receberá a imagem final.
+
+3. **Gravação de vídeo**: Gerenciada por `CAMCaptureMovieFileOutput`, que recebe o feed de vídeo e o salva em um arquivo.
+
+4. **Fluxo de dados**: O ponto chave é o método `captureOutput:didOutputSampleBuffer:fromConnection:`, onde os frames brutos são processados antes de serem enviados para a interface ou para gravação.
 
 ## Como Usar
 
 1. Instale o tweak em seu dispositivo com jailbreak
-2. Use aplicativos que acessam a câmera (aplicativo Câmera, Instagram, Snapchat, etc.)
-3. Colete os logs para análise
-4. Use as informações para identificar pontos de intervenção para substituição do feed
+2. Use o aplicativo nativo de câmera 
+3. Examine os logs gerados em `/var/tmp/CameraDiag.log`
+4. Compare os logs entre diferentes operações (foto, vídeo, troca de câmera)
 
-## Análise dos Logs
+## Estrutura dos Logs
 
-Os logs contêm prefixos para facilitar a categorização:
+Os logs contêm prefixos que indicam o tipo de operação sendo monitorada:
 
 - `[INIT]` - Inicialização de objetos
-- `[METHOD]` - Chamadas de método
-- `[BUFFER]` - Informações sobre buffers de vídeo
-- `[DISPLAY]` - Operações de renderização e exibição
-- `[IMAGE_PROCESSING]` - Operações de processamento de imagem
-- `[MEDIA_READER]` - Operações de leitura de mídia
-
-## Desenvolvimento
-
-### Pré-requisitos:
-- Theos instalado
-- SDK iOS
-- Dispositivo com jailbreak para testes
-
-### Compilação:
-```bash
-make
-make package
-```
-
-### Instalação:
-```bash
-make install
-```
+- `[SESSION]` - Operações da sessão de captura
+- `[DEVICE]` - Operações do dispositivo de câmera
+- `[DEVICE_INPUT]` - Configurações de entrada
+- `[DISPLAY]` - Operações de exibição
+- `[CONNECTION]` - Configurações de conexão
+- `[PHOTO]` - Operações de captura de foto
+- `[VIDEO]` - Operações de gravação de vídeo
+- `[BUFFER_HOOK]` - Informações sobre os buffers de imagem
+- `[PIXEL_FORMAT]` - Detalhes sobre formatos de pixel
 
 ## Próximos Passos
 
-Após a coleta de dados suficientes, a próxima etapa é desenvolver um mecanismo que possa:
+### Fase 1: Atual - Diagnóstico da Câmera Nativa
+✅ Análise completa do aplicativo de câmera nativa
+✅ Identificação dos pontos-chave para substituição
+✅ Mapeamento do pipeline completo (visualização + captura)
 
-1. Interceptar o feed da câmera no ponto ideal do pipeline
-2. Substituir os dados com um feed alternativo
-3. Preservar todos os metadados e propriedades necessários
-4. Garantir que a substituição seja indetectável pelos aplicativos
+### Fase 2: Expansão para Outros Aplicativos
+- Adaptar o tweak para capturar informações em outros aplicativos populares
+- Comparar implementações entre diferentes aplicativos
+- Identificar padrões comuns e diferenças no uso da câmera
 
-## Notas
+### Fase 3: Desenvolvimento da Solução de Substituição
+- Implementar substituição de feed para o aplicativo nativo como prova de conceito
+- Adaptar a solução para funcionar universalmente com base nos padrões identificados
+- Testar a solução em múltiplos aplicativos
 
-Este tweak é apenas para análise e diagnóstico, não realiza nenhuma substituição efetiva do feed da câmera.
+## Ponto Ideal para Substituição
+
+Com base na análise atual, o ponto mais promissor para substituição do feed na câmera nativa é o método `captureOutput:didOutputSampleBuffer:fromConnection:`. Este método recebe os frames brutos da câmera antes que sejam processados para exibição ou gravação, permitindo uma substituição transparente que afetará tanto a visualização em tempo real quanto a captura de fotos e vídeos.
+
+## Notas Técnicas
+
+- O tweak utiliza Logos (Theos) para criar hooks no sistema iOS
+- Filter.plist está configurado para carregar o tweak em todos os aplicativos via UIKit
+- Os logs são gerados em formato legível para facilitar a análise
+- A solução final deverá preservar metadados importantes como orientação, timestamp e configurações de câmera para manter total compatibilidade
+
+## Conclusão
+
+A análise do aplicativo de câmera nativa fornece uma base sólida para compreender o pipeline de processamento da câmera no iOS. O próximo desafio é expandir esta análise para outros aplicativos e desenvolver uma solução de substituição universal que funcione de forma transparente e indetectável em todo o sistema.
