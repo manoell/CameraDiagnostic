@@ -2,6 +2,8 @@
 #define LOGGER_H
 
 #import <Foundation/Foundation.h>
+#import <CoreMedia/CoreMedia.h> // Para CMSampleBufferRef, CMTime, etc.
+#import <CoreVideo/CoreVideo.h> // Para CVPixelBufferRef
 
 #ifdef __cplusplus
 extern "C" {
@@ -19,6 +21,20 @@ void writeLog(NSString *format, ...);
  * @param level Nível desejado
  */
 void setLogLevel(int level);
+
+/**
+ * Registra detalhes de um CMSampleBuffer
+ * @param buffer Buffer de amostra
+ * @param context Contexto da chamada
+ */
+void logBufferDetails(CMSampleBufferRef buffer, NSString *context);
+
+/**
+ * Registra detalhes de um CVPixelBuffer
+ * @param buffer Buffer de pixel
+ * @param context Contexto da chamada
+ */
+void logPixelBufferDetails(CVPixelBufferRef buffer, NSString *context);
 
 #ifdef __cplusplus
 }
