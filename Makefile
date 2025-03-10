@@ -1,15 +1,14 @@
-ARCHS = arm64 arm64e
 TARGET := iphone:clang:14.5:14.0
-include $(THEOS)/makefiles/common.mk
+INSTALL_TARGET_PROCESSES = SpringBoard
 
 TWEAK_NAME = CameraDiagnostic
-$(TWEAK_NAME)_FILES = Tweak.xm logger.m
-$(TWEAK_NAME)_CFLAGS = -fobjc-arc -Wno-deprecated-declarations
-$(TWEAK_NAME)_FRAMEWORKS = UIKit AVFoundation CoreMedia CoreVideo QuartzCore Metal SceneKit ARKit
-$(TWEAK_NAME)_PRIVATE_FRAMEWORKS = MediaToolbox CameraKit
-$(TWEAK_NAME)_LOGOS_DEFAULT_GENERATOR = internal
 
+CameraDiagnostic_FILES = Tweak.xm logger.m
+CameraDiagnostic_CFLAGS = -fobjc-arc
+CameraDiagnostic_FRAMEWORKS = UIKit AVFoundation CoreMedia CoreVideo
+
+# Adicionar flags específicas para o arquivo Tweak.xm
+CameraDiagnostic_XCFLAGS = -std=c++11
+
+include $(THEOS)/makefiles/common.mk
 include $(THEOS_MAKE_PATH)/tweak.mk
-
-after-install::
-	install.exec "killall -9 SpringBoard"
