@@ -1,84 +1,114 @@
-# Camera Diagnostic
+# CameraDiagnostic
 
-Um tweak para diagnóstico completo do pipeline da câmera em iOS, com foco na análise do aplicativo nativo de câmera e preparação para implementação universal.
+## Ferramenta de Diagnóstico da Câmera iOS
 
-## Objetivo
+![Badge](https://img.shields.io/badge/iOS-14.0%2B-blue)
+![Badge](https://img.shields.io/badge/Status-Desenvolvimento-orange)
 
-Este tweak foi desenvolvido para registrar e analisar o funcionamento da câmera no iOS, com o objetivo de compreender como o sistema processa o feed da câmera. As informações coletadas serão utilizadas para criar um sistema capaz de substituir o feed da câmera de forma indetectável e que funcione tanto para visualização quanto para captura de fotos e vídeos.
+## Visão Geral
 
-## Status Atual
+CameraDiagnostic é uma ferramenta para análise profunda da câmera em dispositivos iOS, projetada para inspecionar e diagnosticar como diferentes aplicativos interagem com o sistema de câmera nativo. A ferramenta coleta dados extensos sobre cada etapa do pipeline da câmera, permitindo entender seu funcionamento interno para implementações futuras.
 
-O tweak está funcionando perfeitamente com o aplicativo de câmera nativa do iOS, capturando informações detalhadas sobre todo o pipeline de processamento. Isso inclui:
+## Objetivos
 
-- Inicialização e configuração da sessão
-- Troca entre câmeras frontal e traseira
-- Captura de fotos 
-- Gravação de vídeos
-- Configurações de orientação e espelhamento
-- Conexões entre componentes do sistema de câmera
+1. **Diagnóstico Completo**: Coletar informações detalhadas sobre cada etapa do pipeline da câmera
+2. **Análise Multi-Aplicativos**: Monitorar como diferentes apps interagem com a câmera
+3. **Identificação de Padrões**: Descobrir elementos em comum entre diferentes implementações
+4. **Documentação do API**: Entender o funcionamento prático das APIs de câmera do iOS
 
-Para o aplicativo nativo, as informações coletadas são suficientes para implementar uma substituição completa e transparente do feed da câmera.
+## Componentes Monitorados
 
-## Pontos de Interesse Identificados
+### 1. Configuração da Câmera
+- Formatos de captura
+- Resoluções suportadas
+- Orientações
+- Configurações de taxa de frames
+- Troca entre câmeras frontal/traseira
 
-1. **Visualização em tempo real**: O feed é processado através de `AVCaptureVideoPreviewLayer`, que recebe dados da sessão de captura e os exibe na interface.
+### 2. Pipeline de Processamento
+- Delegados e callbacks
+- Fluxo de sample buffers
+- Formatos de pixel
+- Transformações de dados
+- Metadados
 
-2. **Captura de fotos**: Controlada por `AVCapturePhotoOutput capturePhotoWithSettings`, que especifica as configurações da foto e o delegate que receberá a imagem final.
+### 3. Interface do Usuário
+- Layers de preview
+- Transformações e geometria
+- Hierarquia de views
+- Manipulação de imagens
 
-3. **Gravação de vídeo**: Gerenciada por `CAMCaptureMovieFileOutput`, que recebe o feed de vídeo e o salva em um arquivo.
+### 4. Captura de Fotos
+- Configurações de foto
+- Processamento de imagem
+- Metadados EXIF
+- Miniaturas e previews
 
-4. **Fluxo de dados**: O ponto chave é o método `captureOutput:didOutputSampleBuffer:fromConnection:`, onde os frames brutos são processados antes de serem enviados para a interface ou para gravação.
+## Arquitetura do Projeto
+
+O projeto está dividido em componentes especializados:
+
+- **Tweak.xm**: Inicialização e configuração global
+- **CameraHooks.xm**: Hooks para componentes principais de câmera (AVCaptureSession, AVCaptureDevice)
+- **PhotoHooks.xm**: Hooks específicos para captura de fotos
+- **PreviewHooks.xm**: Hooks para preview e exibição
+- **UIHooks.xm**: Hooks para interface de usuário
+- **DiagnosticCollector**: Sistema de coleta e armazenamento de dados
+- **Logger**: Sistema de log para depuração
+
+## Dados Coletados
+
+Todos os dados são salvos em formato JSON estruturado, incluindo:
+
+- Timestamp de cada evento
+- Identificação de sessão
+- Propriedades relevantes
+- Hierarquias de componentes
+- Resolução, formato e metadados
+- Estatísticas de performance
+
+## Implementação
+
+A ferramenta utiliza a técnica de "method swizzling" através do framework Theos para interceptar chamadas de API sem modificar os aplicativos alvo. Todas as operações são realizadas de forma não-intrusiva, apenas coletando dados sem interferir no funcionamento normal.
 
 ## Como Usar
 
-1. Instale o tweak em seu dispositivo com jailbreak
-2. Use o aplicativo nativo de câmera 
-3. Examine os logs gerados em `/var/tmp/CameraDiag.log`
-4. Compare os logs entre diferentes operações (foto, vídeo, troca de câmera)
+1. Compilar e instalar o tweak em um dispositivo com jailbreak
+2. Abrir qualquer aplicativo que use a câmera
+3. Utilizar a câmera normalmente
+4. Os dados serão coletados automaticamente
+5. Verificar os arquivos JSON de diagnóstico no diretório `/var/mobile/Documents/CameraDiagnostics/`
 
-## Estrutura dos Logs
+## Principais Pontos de Interesse
 
-Os logs contêm prefixos que indicam o tipo de operação sendo monitorada:
+- **Pontos de injeção**: Encontrar o local ideal para substituir o feed da câmera
+- **Compatibilidade**: Identificar padrões comuns entre diferentes aplicativos
+- **Mapeamento de formato**: Entender os formatos de imagem utilizados em cada etapa
+- **Sincronização**: Compreender mecanismos de timing e sincronização
+- **Metadados críticos**: Identificar quais metadados são essenciais para manter compatibilidade
 
-- `[INIT]` - Inicialização de objetos
-- `[SESSION]` - Operações da sessão de captura
-- `[DEVICE]` - Operações do dispositivo de câmera
-- `[DEVICE_INPUT]` - Configurações de entrada
-- `[DISPLAY]` - Operações de exibição
-- `[CONNECTION]` - Configurações de conexão
-- `[PHOTO]` - Operações de captura de foto
-- `[VIDEO]` - Operações de gravação de vídeo
-- `[BUFFER_HOOK]` - Informações sobre os buffers de imagem
-- `[PIXEL_FORMAT]` - Detalhes sobre formatos de pixel
+## Análise de Dados
+
+Os dados coletados podem ser analisados para:
+
+1. Criar um mapa completo do pipeline da câmera em cada aplicativo
+2. Identificar pontos em comum entre diferentes implementações
+3. Determinar os requisitos para uma implementação de câmera virtual transparente
+4. Documentar as práticas reais de uso da API AVFoundation
+
+## Requisitos
+
+- iOS 14.0 ou superior
+- Dispositivo com jailbreak
+- Acesso a permissões de câmera
 
 ## Próximos Passos
 
-### Fase 1: Atual - Diagnóstico da Câmera Nativa
-✅ Análise completa do aplicativo de câmera nativa
-✅ Identificação dos pontos-chave para substituição
-✅ Mapeamento do pipeline completo (visualização + captura)
+- Expandir monitoramento para mais classes e métodos
+- Adicionar ferramentas de visualização para os dados coletados
+- Criar relatórios comparativos entre diferentes aplicativos
+- Desenvolver protótipo de substituição baseado nos dados coletados
 
-### Fase 2: Expansão para Outros Aplicativos
-- Adaptar o tweak para capturar informações em outros aplicativos populares
-- Comparar implementações entre diferentes aplicativos
-- Identificar padrões comuns e diferenças no uso da câmera
+## Notas
 
-### Fase 3: Desenvolvimento da Solução de Substituição
-- Implementar substituição de feed para o aplicativo nativo como prova de conceito
-- Adaptar a solução para funcionar universalmente com base nos padrões identificados
-- Testar a solução em múltiplos aplicativos
-
-## Ponto Ideal para Substituição
-
-Com base na análise atual, o ponto mais promissor para substituição do feed na câmera nativa é o método `captureOutput:didOutputSampleBuffer:fromConnection:`. Este método recebe os frames brutos da câmera antes que sejam processados para exibição ou gravação, permitindo uma substituição transparente que afetará tanto a visualização em tempo real quanto a captura de fotos e vídeos.
-
-## Notas Técnicas
-
-- O tweak utiliza Logos (Theos) para criar hooks no sistema iOS
-- Filter.plist está configurado para carregar o tweak em todos os aplicativos via UIKit
-- Os logs são gerados em formato legível para facilitar a análise
-- A solução final deverá preservar metadados importantes como orientação, timestamp e configurações de câmera para manter total compatibilidade
-
-## Conclusão
-
-A análise do aplicativo de câmera nativa fornece uma base sólida para compreender o pipeline de processamento da câmera no iOS. O próximo desafio é expandir esta análise para outros aplicativos e desenvolver uma solução de substituição universal que funcione de forma transparente e indetectável em todo o sistema.
+Esta ferramenta é exclusivamente para diagnóstico e pesquisa. Todas as informações coletadas são armazenadas localmente no dispositivo e não são compartilhadas.

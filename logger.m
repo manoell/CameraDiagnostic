@@ -1,16 +1,14 @@
 #import "logger.h"
 
-static int gLogLevel = 5; // Valor padrão: debug (máximo) para capturar tudo
+static int gLogLevel = 3; // Valor padrão: aviso
+static NSString *const kLogDirectory = @"CameraDiagnosticLogs";
 
 void setLogLevel(int level) {
     gLogLevel = level;
 }
 
-NSString *getCallerBundleID() {
-    return [[NSBundle mainBundle] bundleIdentifier] ?: @"unknown";
-}
-
 void writeLog(NSString *format, ...) {
+    // Se log estiver desativado, retorna imediatamente
     if (gLogLevel <= 0) return;
     
     @try {
@@ -19,60 +17,73 @@ void writeLog(NSString *format, ...) {
         NSString *formattedString = [[NSString alloc] initWithFormat:format arguments:args];
         va_end(args);
         
-        NSDateFormatter *formatter = [[NSDateFormatter alloc] init];
-        [formatter setDateFormat:@"HH:mm:ss.SSS"];
-        NSString *timestamp = [formatter stringFromDate:[NSDate date]];
+        // Formatar a mensagem com timestamp
+        NSDateFormatter *dateFormatter = [[NSDateFormatter alloc] init];
+        [dateFormatter setDateFormat:@"yyyy-MM-dd HH:mm:ss.SSS"];
+        NSString *timestamp = [dateFormatter stringFromDate:[NSDate date]];
         
-        NSString *bundleID = getCallerBundleID();
-        NSString *logMessage = [NSString stringWithFormat:@"[%@] [%@] %@\n", timestamp, bundleID, formattedString];
+        NSString *logMessage = [NSString stringWithFormat:@"[%@] %@\n", timestamp, formattedString];
         
-        NSLog(@"[CameraDiag] [%@] %@", bundleID, formattedString);
+        // Mostrar log no console (sempre)
+        NSLog(@"[CameraDiagnostic] %@", formattedString);
         
-        if (gLogLevel >= 1) {
-            NSString *logPath = @"/var/tmp/CameraDiag.log";
-            NSFileHandle *fileHandle = [NSFileHandle fileHandleForWritingAtPath:logPath];
-            if (!fileHandle) {
-                [@"" writeToFile:logPath atomically:YES encoding:NSUTF8StringEncoding error:nil];
-                fileHandle = [NSFileHandle fileHandleForWritingAtPath:logPath];
+        // Em modo debug ou superior, salvar em arquivo
+        if (gLogLevel >= 4) {
+            // Obter caminho para diretório de logs
+            NSArray *paths = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES);
+            NSString *documentsDirectory = [paths firstObject];
+            NSString *logsDirectory = [documentsDirectory stringByAppendingPathComponent:kLogDirectory];
+            
+            // Criar diretório se não existir
+            NSFileManager *fileManager = [NSFileManager defaultManager];
+            NSError *dirError;
+            if (![fileManager fileExistsAtPath:logsDirectory]) {
+                [fileManager createDirectoryAtPath:logsDirectory 
+                       withIntermediateDirectories:YES 
+                                        attributes:nil 
+                                             error:&dirError];
+                
+                if (dirError) {
+                    NSLog(@"[CameraDiagnostic] Erro ao criar diretório de logs: %@", [dirError localizedDescription]);
+                    return;
+                }
             }
-            if (fileHandle) {
-                [fileHandle seekToEndOfFile];
-                [fileHandle writeData:[logMessage dataUsingEncoding:NSUTF8StringEncoding]];
-                [fileHandle closeFile];
+            
+            // Nome de arquivo com processo e data
+            NSString *processName = [NSProcessInfo processInfo].processName;
+            NSDateFormatter *fileDateFormatter = [[NSDateFormatter alloc] init];
+            [fileDateFormatter setDateFormat:@"yyyyMMdd"];
+            NSString *dateString = [fileDateFormatter stringFromDate:[NSDate date]];
+            
+            NSString *logFilename = [NSString stringWithFormat:@"%@_%@.log", processName, dateString];
+            NSString *logPath = [logsDirectory stringByAppendingPathComponent:logFilename];
+            
+            // Escrever no arquivo (append)
+            @try {
+                NSFileHandle *fileHandle = [NSFileHandle fileHandleForWritingAtPath:logPath];
+                
+                if (!fileHandle) {
+                    // Criar arquivo se não existir
+                    NSError *fileError;
+                    [logMessage writeToFile:logPath 
+                                 atomically:YES 
+                                   encoding:NSUTF8StringEncoding 
+                                      error:&fileError];
+                    
+                    if (fileError) {
+                        NSLog(@"[CameraDiagnostic] Erro ao criar arquivo de log: %@", [fileError localizedDescription]);
+                    }
+                } else {
+                    // Adicionar ao arquivo existente
+                    [fileHandle seekToEndOfFile];
+                    [fileHandle writeData:[logMessage dataUsingEncoding:NSUTF8StringEncoding]];
+                    [fileHandle closeFile];
+                }
+            } @catch (NSException *e) {
+                NSLog(@"[CameraDiagnostic] Erro ao escrever log: %@", e);
             }
         }
     } @catch (NSException *e) {
-        NSLog(@"[CameraDiag] ERRO NO LOGGER: %@", e);
+        NSLog(@"[CameraDiagnostic] ERRO NO LOGGER: %@", e);
     }
-}
-
-void logBufferDetails(CMSampleBufferRef buffer, NSString *context) {
-    if (!buffer || gLogLevel < 3) return;
-    
-    CMFormatDescriptionRef formatDesc = CMSampleBufferGetFormatDescription(buffer);
-    CMMediaType mediaType = formatDesc ? CMFormatDescriptionGetMediaType(formatDesc) : 0;
-    char mediaTypeStr[5] = {0};
-    mediaTypeStr[0] = (char)((mediaType >> 24) & 0xFF);
-    mediaTypeStr[1] = (char)((mediaType >> 16) & 0xFF);
-    mediaTypeStr[2] = (char)((mediaType >> 8) & 0xFF);
-    mediaTypeStr[3] = (char)(mediaType & 0xFF);
-    
-    CMTime timestamp = CMSampleBufferGetPresentationTimeStamp(buffer);
-    writeLog(@"[BUFFER] %@ - MediaType: %s, Timestamp: %.4f, Duration: %.4f",
-             context, mediaTypeStr, CMTimeGetSeconds(timestamp), CMTimeGetSeconds(CMSampleBufferGetDuration(buffer)));
-    
-    CVPixelBufferRef pixelBuffer = CMSampleBufferGetImageBuffer(buffer);
-    if (pixelBuffer) {
-        logPixelBufferDetails(pixelBuffer, context);
-    }
-}
-
-void logPixelBufferDetails(CVPixelBufferRef buffer, NSString *context) {
-    if (!buffer || gLogLevel < 3) return;
-    
-    size_t width = CVPixelBufferGetWidth(buffer);
-    size_t height = CVPixelBufferGetHeight(buffer);
-    OSType pixelFormat = CVPixelBufferGetPixelFormatType(buffer);
-    writeLog(@"[PIXEL_BUFFER] %@ - Dimensions: %zux%zu, Format: %4.4s",
-             context, width, height, (char *)&pixelFormat);
 }

@@ -2,18 +2,7 @@
     Filter = {
         Bundles = (
             "com.apple.UIKit",
-            "com.apple.camera",
-            "org.telegram.messenger",
-            "net.whatsapp.WhatsApp",
-            "com.instagram.Instagram",
-            "com.burbn.instagram",
-            "com.facebook.Messenger",
-            "com.zhiliaoapp.musically",
-            "com.atebits.Tweetie2"
-        );
-        Executables = (
-            "Camera", 
-            "MobileSlideShow"
+            "com.apple.AVFoundation"
         );
     };
 }
