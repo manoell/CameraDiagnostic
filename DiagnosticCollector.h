@@ -40,6 +40,7 @@
 - (void)recordLayerOperation:(NSDictionary *)operationInfo;
 - (void)recordMetadataObjects:(NSDictionary *)metadataInfo;
 - (void)recordDroppedFrame:(NSDictionary *)frameInfo;
+- (void)forceSaveDiagnostic;
 
 // Métodos de utilidade
 - (NSDictionary *)getCurrentSessionInfo;

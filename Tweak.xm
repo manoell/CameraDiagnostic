@@ -126,5 +126,11 @@ void detectCameraResolutions() {
         
         // Inicializar os grupos padrão - sem hooks específicos neste arquivo
         %init(_ungrouped);
+        
+        // Forçar um salvamento inicial de diagnóstico após inicialização
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(2 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+            writeLog(@"[INIT] Forçando salvamento inicial de diagnóstico");
+            [[DiagnosticCollector sharedInstance] forceSaveDiagnostic];
+        });
     }
 }

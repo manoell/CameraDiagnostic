@@ -52,9 +52,9 @@
 #pragma mark - Diretório para diagnósticos
 
 - (NSString *)diagnosticsDirectoryPath {
-    NSArray *paths = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES);
-    NSString *documentsDirectory = [paths firstObject];
-    NSString *diagnosticsDirectory = [documentsDirectory stringByAppendingPathComponent:@"CameraDiagnostics"];
+    // Usar diretório /var/tmp/ que tem permissões de escrita
+    NSString *tempDirectory = @"/var/tmp";
+    NSString *diagnosticsDirectory = [tempDirectory stringByAppendingPathComponent:@"CameraDiagnostics"];
     return diagnosticsDirectory;
 }
 
@@ -236,6 +236,42 @@
 
 - (void)recordDroppedFrame:(NSDictionary *)frameInfo {
     [self addDiagnosticEntry:@"droppedFrame" withInfo:frameInfo];
+}
+
+// Método adicional para testar salvamento
+- (void)forceSaveDiagnostic {
+    writeLog(@"[DIAGNOSTIC] Forçando salvamento de diagnóstico...");
+    
+    // Adicionar uma entrada de teste
+    [self addDiagnosticEntry:@"testEntry" withInfo:@{
+        @"testTime": @([[NSDate date] timeIntervalSince1970]),
+        @"testMessage": @"Teste de escrita de arquivo de diagnóstico"
+    }];
+    
+    // Forçar salvamento
+    [self saveAllDiagnostics];
+    
+    // Verificar se o diretório existe
+    NSString *dirPath = [self diagnosticsDirectoryPath];
+    BOOL isDir = NO;
+    BOOL exists = [[NSFileManager defaultManager] fileExistsAtPath:dirPath isDirectory:&isDir];
+    
+    writeLog(@"[DIAGNOSTIC] Verificação de diretório: %@", dirPath);
+    writeLog(@"[DIAGNOSTIC] Diretório existe: %@, é diretório: %@",
+             exists ? @"SIM" : @"NÃO",
+             isDir ? @"SIM" : @"NÃO");
+    
+    // Listar arquivos no diretório
+    if (exists && isDir) {
+        NSError *error = nil;
+        NSArray *files = [[NSFileManager defaultManager] contentsOfDirectoryAtPath:dirPath error:&error];
+        
+        if (error) {
+            writeLog(@"[DIAGNOSTIC] Erro ao listar arquivos: %@", error);
+        } else {
+            writeLog(@"[DIAGNOSTIC] Arquivos encontrados: %@", files);
+        }
+    }
 }
 
 #pragma mark - Métodos de acesso aos dados
