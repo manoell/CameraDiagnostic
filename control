@@ -1,9 +1,0 @@
-Package: com.diagnostic.camera
-Name: CameraDiagnostic
-Version: 0.1.0
-Architecture: iphoneos-arm
-Description: Ferramenta de diagnóstico para câmera iOS. Coleta informações detalhadas sobre o pipeline da câmera em diversos aplicativos.
-Maintainer: Developer
-Author: Developer
-Section: Tweaks
-Depends: mobilesubstrate (>= 0.9.5000)

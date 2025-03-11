@@ -1,114 +1,127 @@
 # CameraDiagnostic
 
-## Ferramenta de Diagnóstico da Câmera iOS
-
 ![Badge](https://img.shields.io/badge/iOS-14.0%2B-blue)
-![Badge](https://img.shields.io/badge/Status-Desenvolvimento-orange)
+![Badge](https://img.shields.io/badge/Status-Beta-yellow)
 
 ## Visão Geral
 
-CameraDiagnostic é uma ferramenta para análise profunda da câmera em dispositivos iOS, projetada para inspecionar e diagnosticar como diferentes aplicativos interagem com o sistema de câmera nativo. A ferramenta coleta dados extensos sobre cada etapa do pipeline da câmera, permitindo entender seu funcionamento interno para implementações futuras.
+CameraDiagnostic é uma ferramenta de diagnóstico para iOS jailbroken que coleta informações detalhadas sobre o funcionamento da câmera em diferentes aplicativos. Desenvolvida para ser usada em conjunto com o tweak VCamMJPEG, esta ferramenta diagnostica e registra as características exatas da câmera nativa para permitir aprimoramentos na substituição do feed de câmera.
 
-## Objetivos
+## Objetivo
 
-1. **Diagnóstico Completo**: Coletar informações detalhadas sobre cada etapa do pipeline da câmera
-2. **Análise Multi-Aplicativos**: Monitorar como diferentes apps interagem com a câmera
-3. **Identificação de Padrões**: Descobrir elementos em comum entre diferentes implementações
-4. **Documentação do API**: Entender o funcionamento prático das APIs de câmera do iOS
+O principal objetivo desta ferramenta é coletar informações cruciais sobre como cada aplicativo utiliza a câmera, incluindo:
 
-## Componentes Monitorados
+- Resoluções nativas de câmeras (frontal/traseira)
+- Orientações de vídeo e transformações aplicadas
+- Formatos de pixel e configurações de buffer
+- Metadados de captura de fotos
+- Ajustes específicos de cada aplicativo
 
-### 1. Configuração da Câmera
-- Formatos de captura
-- Resoluções suportadas
-- Orientações
-- Configurações de taxa de frames
-- Troca entre câmeras frontal/traseira
+Estas informações permitem que o VCamMJPEG realize a substituição do feed da câmera de forma transparente e universal, emulando exatamente as características esperadas por cada aplicativo.
 
-### 2. Pipeline de Processamento
-- Delegados e callbacks
-- Fluxo de sample buffers
-- Formatos de pixel
-- Transformações de dados
-- Metadados
+## Características
 
-### 3. Interface do Usuário
-- Layers de preview
-- Transformações e geometria
-- Hierarquia de views
-- Manipulação de imagens
+### Diagnóstico Abrangente
+- Monitoramento de AVCaptureSession
+- Detecção de características da câmera do dispositivo
+- Análise de orientações e transformações de vídeo
+- Captura de metadados de fotos e vídeos
+- Extração de formatos e configurações
 
-### 4. Captura de Fotos
-- Configurações de foto
-- Processamento de imagem
-- Metadados EXIF
-- Miniaturas e previews
+### Logging Detalhado
+- Formato JSON para fácil análise
+- Organização por sessões e categorias
+- Timestamp em cada evento registrado
+- Armazenamento eficiente e bem estruturado
+
+### Compatibilidade Universal
+- Funciona em qualquer aplicativo que use a câmera
+- Mesmo sistema de hooks do VCamMJPEG
+- Diagnóstico não intrusivo (não modifica comportamento)
+- Suporte a iOS 10 até versões recentes
 
 ## Arquitetura do Projeto
 
-O projeto está dividido em componentes especializados:
+O projeto está organizado em componentes bem definidos:
 
-- **Tweak.xm**: Inicialização e configuração global
-- **CameraHooks.xm**: Hooks para componentes principais de câmera (AVCaptureSession, AVCaptureDevice)
-- **PhotoHooks.xm**: Hooks específicos para captura de fotos
-- **PreviewHooks.xm**: Hooks para preview e exibição
-- **UIHooks.xm**: Hooks para interface de usuário
-- **DiagnosticCollector**: Sistema de coleta e armazenamento de dados
-- **Logger**: Sistema de log para depuração
+- **Core**
+  - `DiagnosticTweak.h/.xm`: Núcleo do tweak e gestão de sessões
+  - `Filter.plist`: Configuração de aplicativos suportados
+  
+- **Utils**
+  - `Logger.h/.m`: Sistema de logging com suporte a JSON
+  - `MetadataExtractor.h/.m`: Extração de dados da câmera e mídia
+  
+- **Hooks**
+  - `CaptureSessionHooks.xm`: Monitora AVCaptureSession
+  - `DeviceHooks.xm`: Monitora características do dispositivo de câmera
+  - `OrientationHooks.xm`: Monitora orientações de vídeo
+  - `VideoOutputHooks.xm`: Monitora saídas de vídeo e frames
+  - `PhotoOutputHooks.xm`: Monitora captura de fotos
 
-## Dados Coletados
+## Funcionamento
 
-Todos os dados são salvos em formato JSON estruturado, incluindo:
-
-- Timestamp de cada evento
-- Identificação de sessão
-- Propriedades relevantes
-- Hierarquias de componentes
-- Resolução, formato e metadados
-- Estatísticas de performance
-
-## Implementação
-
-A ferramenta utiliza a técnica de "method swizzling" através do framework Theos para interceptar chamadas de API sem modificar os aplicativos alvo. Todas as operações são realizadas de forma não-intrusiva, apenas coletando dados sem interferir no funcionamento normal.
+1. O tweak é carregado quando um aplicativo que usa a câmera é iniciado
+2. Cada interação com a câmera é monitorada e registrada
+3. Informações detalhadas são salvas em arquivos JSON
+4. Cada aplicativo gera sua própria sessão de diagnóstico
+5. Os logs são armazenados em `/var/mobile/Documents/CameraDiagnostic/`
 
 ## Como Usar
 
-1. Compilar e instalar o tweak em um dispositivo com jailbreak
-2. Abrir qualquer aplicativo que use a câmera
-3. Utilizar a câmera normalmente
-4. Os dados serão coletados automaticamente
-5. Verificar os arquivos JSON de diagnóstico no diretório `/var/mobile/Documents/CameraDiagnostics/`
+### Instalação
 
-## Principais Pontos de Interesse
+1. Compile o projeto usando o Theos:
+   ```bash
+   make package
+   ```
 
-- **Pontos de injeção**: Encontrar o local ideal para substituir o feed da câmera
-- **Compatibilidade**: Identificar padrões comuns entre diferentes aplicativos
-- **Mapeamento de formato**: Entender os formatos de imagem utilizados em cada etapa
-- **Sincronização**: Compreender mecanismos de timing e sincronização
-- **Metadados críticos**: Identificar quais metadados são essenciais para manter compatibilidade
+2. Instale o pacote .deb no dispositivo com jailbreak:
+   ```bash
+   make install
+   ```
 
-## Análise de Dados
+### Coletando Dados
 
-Os dados coletados podem ser analisados para:
+1. Abra os aplicativos que deseja diagnosticar (Camera, Instagram, Snapchat, etc.)
+2. Use a câmera normalmente, incluindo:
+   - Alternar entre câmeras frontal e traseira
+   - Mudar orientação do dispositivo
+   - Capturar fotos
+   - Gravar vídeos (se aplicável)
 
-1. Criar um mapa completo do pipeline da câmera em cada aplicativo
-2. Identificar pontos em comum entre diferentes implementações
-3. Determinar os requisitos para uma implementação de câmera virtual transparente
-4. Documentar as práticas reais de uso da API AVFoundation
+3. Acesse os logs em `/var/mobile/Documents/CameraDiagnostic/`
+
+### Analisando Resultados
+
+Os arquivos JSON contêm informações organizadas por categorias:
+- **session**: Informações gerais da sessão
+- **device**: Características do dispositivo de câmera
+- **video**: Configurações de vídeo
+- **photo**: Configurações de foto
+- **orientation**: Orientações detectadas
+- **format**: Formatos de mídia
+- **metadata**: Metadados diversos
+
+## Integrando com VCamMJPEG
+
+Os dados coletados podem ser usados para:
+1. Identificar diferentes implementações entre aplicativos
+2. Resolver problemas de compatibilidade
+3. Implementar adaptações dinâmicas no VCamMJPEG
 
 ## Requisitos
 
-- iOS 14.0 ou superior
+- iOS 10.0 até versões recentes
 - Dispositivo com jailbreak
-- Acesso a permissões de câmera
+- Theos para compilação
 
 ## Próximos Passos
 
-- Expandir monitoramento para mais classes e métodos
-- Adicionar ferramentas de visualização para os dados coletados
-- Criar relatórios comparativos entre diferentes aplicativos
-- Desenvolver protótipo de substituição baseado nos dados coletados
+- Implementar auto-diagnóstico no VCamMJPEG
+- Criar sistema de adaptação dinâmica
+- Expandir compatibilidade com mais aplicativos
 
-## Notas
+## Licença
 
-Esta ferramenta é exclusivamente para diagnóstico e pesquisa. Todas as informações coletadas são armazenadas localmente no dispositivo e não são compartilhadas.
+Código fonte disponível para uso pessoal e educacional.
