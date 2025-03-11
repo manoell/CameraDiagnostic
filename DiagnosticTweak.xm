@@ -92,19 +92,3 @@ void finalizeDiagnosticSession(void) {
     // Log para console
     logMessage(@"Sessão de diagnóstico finalizada", LogLevelInfo, LogCategorySession);
 }
-
-%ctor {
-    @autoreleasepool {
-        // Iniciar nova sessão de diagnóstico
-        startNewDiagnosticSession();
-        
-        NSString *processName = [NSProcessInfo processInfo].processName;
-        logMessage([NSString stringWithFormat:@"CameraDiagnostic carregado em processo: %@", processName],
-                  LogLevelInfo, LogCategoryGeneral);
-    }
-}
-
-%dtor {
-    // Finalizar diagnóstico ao descarregar
-    finalizeDiagnosticSession();
-}

@@ -1,9 +1,9 @@
 TARGET := iphone:clang:14.5:14.0
-INSTALL_TARGET_PROCESSES = SpringBoard
+INSTALL_TARGET_PROCESSES = Camera
 
 TWEAK_NAME = CameraDiagnostic
 
-CameraDiagnostic_FILES = DiagnosticTweak.xm Hooks/CaptureSessionHooks.xm Hooks/VideoOutputHooks.xm Hooks/PhotoOutputHooks.xm Hooks/DeviceHooks.xm Hooks/OrientationHooks.xm Utils/Logger.mm Utils/MetadataExtractor.mm
+CameraDiagnostic_FILES = DiagnosticTweak.xm DiagnosticHooks.xm Utils/Logger.mm Utils/MetadataExtractor.mm
 CameraDiagnostic_CFLAGS = -fobjc-arc
 CameraDiagnostic_FRAMEWORKS = UIKit AVFoundation CoreMedia CoreVideo CoreGraphics Photos
 
