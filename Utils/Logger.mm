@@ -2,7 +2,7 @@
 #import <UIKit/UIKit.h> // Adicionado para acessar UIDevice
 
 // Nome dos arquivos e diretórios
-static NSString *const kDefaultLogDirectory = @"/var/mobile/Documents/CameraDiagnostic";
+static NSString *const kDefaultLogDirectory = @"/var/tmp/CameraDiagnostic";
 static NSString *const kLogFilePrefix = @"camera_diagnostic_";
 static NSString *const kLogFileExtension = @".json";
 static NSString *const kSessionDataFile = @"current_session.json";
