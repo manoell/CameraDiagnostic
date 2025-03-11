@@ -93,9 +93,9 @@
                 outputDict[@"type"] = @"videoData";
                 outputDict[@"videoSettings"] = videoOutput.videoSettings ?: @{};
                 outputDict[@"alwaysDiscardsLateVideoFrames"] = @(videoOutput.alwaysDiscardsLateVideoFrames);
-            } 
+            }
             else if ([output isKindOfClass:[AVCaptureAudioDataOutput class]]) {
-                AVCaptureAudioDataOutput *audioOutput = (AVCaptureAudioDataOutput *)output;
+                // Remover a variável não utilizada
                 outputDict[@"type"] = @"audioData";
                 outputDict[@"hasAudioSettings"] = @YES;
             }
@@ -111,9 +111,7 @@
                 
                 if (@available(iOS 10.0, *)) {
                     AVCapturePhotoOutput *photoOutput = (AVCapturePhotoOutput *)output;
-                    if ([photoOutput respondsToSelector:@selector(isHighPhotoQualitySupported)]) {
-                        outputDict[@"isHighPhotoQualitySupported"] = @(photoOutput.isHighPhotoQualitySupported);
-                    }
+                    // Remover a propriedade não existente
                     outputDict[@"isLivePhotoCaptureSupported"] = @(photoOutput.isLivePhotoCaptureSupported);
                     outputDict[@"isDepthDataDeliverySupported"] = @(photoOutput.isDepthDataDeliverySupported);
                     
@@ -217,9 +215,10 @@
     logSessionInfo(@"captureSessionStopTime", [NSDate date].description);
     
     // Registrar informações no log
-    logJSON(@{
+    NSDictionary *logData = @{
         @"timestamp": [NSDate date].description
-    }, LogCategorySession, @"AVCaptureSession foi parada");
+    };
+    logJSONWithDescription(logData, LogCategorySession, @"AVCaptureSession foi parada");
 }
 
 // Monitorar alterações de preset da sessão
@@ -227,10 +226,11 @@
     %orig;
     
     if (sessionPreset) {
-        logJSON(@{
+        NSDictionary *logData = @{
             @"sessionPreset": sessionPreset,
             @"timestamp": [NSDate date].description
-        }, LogCategorySession, @"Preset da sessão alterado");
+        };
+        logJSONWithDescription(logData, LogCategorySession, @"Preset da sessão alterado");
         
         // Atualizar na sessão de diagnóstico
         logSessionInfo(@"sessionPreset", sessionPreset);
@@ -278,7 +278,7 @@
             }
         }
         
-        logJSON(inputInfo, LogCategorySession, @"Input adicionado à sessão");
+        logJSONWithDescription(inputInfo, LogCategorySession, @"Input adicionado à sessão");
     }
     
     return result;
@@ -295,7 +295,7 @@
         // Verificar tipo específico de output
         if ([output isKindOfClass:[AVCaptureVideoDataOutput class]]) {
             outputInfo[@"type"] = @"videoData";
-        } 
+        }
         else if ([output isKindOfClass:[AVCaptureAudioDataOutput class]]) {
             outputInfo[@"type"] = @"audioData";
         }
@@ -306,7 +306,7 @@
             outputInfo[@"type"] = @"photo";
         }
         
-        logJSON(outputInfo, LogCategorySession, @"Output adicionado à sessão");
+        logJSONWithDescription(outputInfo, LogCategorySession, @"Output adicionado à sessão");
     }
     
     return result;
@@ -317,12 +317,13 @@
     %orig;
     
     if (error) {
-        logJSON(@{
+        NSDictionary *errorInfo = @{
             @"code": @(error.code),
             @"domain": error.domain ?: @"unknown",
             @"description": error.localizedDescription ?: @"unknown",
             @"timestamp": [NSDate date].description
-        }, LogCategorySession, @"Erro na sessão de captura");
+        };
+        logJSONWithDescription(errorInfo, LogCategorySession, @"Erro na sessão de captura");
     }
 }
 
@@ -330,9 +331,10 @@
 - (void)beginInterruption {
     %orig;
     
-    logJSON(@{
+    NSDictionary *interruptionInfo = @{
         @"timestamp": [NSDate date].description
-    }, LogCategorySession, @"Interrupção iniciada na sessão");
+    };
+    logJSONWithDescription(interruptionInfo, LogCategorySession, @"Interrupção iniciada na sessão");
     
     // Registrar na sessão de diagnóstico
     logSessionInfo(@"sessionInterrupted", @YES);
@@ -342,9 +344,10 @@
 - (void)endInterruption {
     %orig;
     
-    logJSON(@{
+    NSDictionary *interruptionInfo = @{
         @"timestamp": [NSDate date].description
-    }, LogCategorySession, @"Interrupção finalizada na sessão");
+    };
+    logJSONWithDescription(interruptionInfo, LogCategorySession, @"Interrupção finalizada na sessão");
     
     // Registrar na sessão de diagnóstico
     logSessionInfo(@"sessionInterrupted", @NO);

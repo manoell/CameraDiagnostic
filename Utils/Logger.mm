@@ -1,4 +1,5 @@
 #import "Logger.h"
+#import <UIKit/UIKit.h> // Adicionado para acessar UIDevice
 
 // Nome dos arquivos e diretórios
 static NSString *const kDefaultLogDirectory = @"/var/mobile/Documents/CameraDiagnostic";
@@ -104,9 +105,9 @@ static NSString *levelToString(LogLevel level) {
     
     if (![fileManager fileExistsAtPath:_logDirectory]) {
         NSError *error = nil;
-        if (![fileManager createDirectoryAtPath:_logDirectory 
-                    withIntermediateDirectories:YES 
-                                     attributes:nil 
+        if (![fileManager createDirectoryAtPath:_logDirectory
+                    withIntermediateDirectories:YES
+                                     attributes:nil
                                           error:&error]) {
             NSLog(@"[CameraDiagnostic] Erro ao criar diretório de logs: %@", error);
         }
@@ -238,7 +239,7 @@ static NSString *levelToString(LogLevel level) {
     [dateFormatter setDateFormat:@"yyyyMMdd_HHmmss"];
     NSString *timestamp = [dateFormatter stringFromDate:[NSDate date]];
     
-    _currentSessionFile = [NSString stringWithFormat:@"%@/%@%@%@", 
+    _currentSessionFile = [NSString stringWithFormat:@"%@/%@%@%@",
                           _logDirectory, kLogFilePrefix, timestamp, kLogFileExtension];
     
     // Adicionar informações básicas da sessão
@@ -360,7 +361,6 @@ static NSString *levelToString(LogLevel level) {
 @end
 
 #pragma mark - Funções C
-
 void logMessage(NSString *message, LogLevel level, LogCategory category) {
     [[DiagnosticLogger sharedInstance] logMessage:message level:level category:category];
 }
@@ -369,7 +369,7 @@ void logJSON(NSDictionary *jsonData, LogCategory category) {
     [[DiagnosticLogger sharedInstance] logJSONData:jsonData forCategory:category];
 }
 
-void logJSON(NSDictionary *jsonData, LogCategory category, NSString *description) {
+void logJSONWithDescription(NSDictionary *jsonData, LogCategory category, NSString *description) {
     [[DiagnosticLogger sharedInstance] logJSONData:jsonData forCategory:category withDescription:description];
 }
 

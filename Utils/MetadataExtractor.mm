@@ -36,24 +36,6 @@ static NSString *FourCCToString(FourCharCode code) {
         [metadata addEntriesFromDictionary:[self videoFormatInfoFromDescription:formatDescription]];
     }
     
-    // Metadados adicionais do buffer
-    CFArrayRef attachmentsArray = CMSampleBufferGetSampleAttachmentsArray(sampleBuffer, true);
-    if (attachmentsArray && CFArrayGetCount(attachmentsArray) > 0) {
-        NSDictionary *attachments = (__bridge NSDictionary *)CFArrayGetValueAtIndex(attachmentsArray, 0);
-        if (attachments) {
-            metadata[@"attachments"] = attachments;
-        }
-    }
-    
-    // Processar metadata adicionais se disponíveis
-    CFDictionaryRef metadataDict = CMCopyDictionaryOfAttachments(kCFAllocatorDefault, sampleBuffer, kCMAttachmentMode_ShouldPropagate);
-    if (metadataDict) {
-        NSDictionary *metaDict = (__bridge_transfer NSDictionary *)metadataDict;
-        if (metaDict && metaDict.count > 0) {
-            metadata[@"cameraMetadata"] = metaDict;
-        }
-    }
-    
     return metadata;
 }
 
@@ -74,41 +56,12 @@ static NSString *FourCCToString(FourCharCode code) {
         metadata[@"bitsPerComponent"] = @(CGImageGetBitsPerComponent(cgImage));
         metadata[@"bitsPerPixel"] = @(CGImageGetBitsPerPixel(cgImage));
         metadata[@"bytesPerRow"] = @(CGImageGetBytesPerRow(cgImage));
-        metadata[@"colorSpace"] = [self stringForColorSpace:CGImageGetColorSpace(cgImage)];
-    }
-    
-    // Pixel Buffer info
-    CVPixelBufferRef pixelBuffer = [photo pixelBuffer];
-    if (pixelBuffer) {
-        metadata[@"pixelBuffer"] = [self pixelBufferInfoFromBuffer:pixelBuffer];
     }
     
     // Formato de arquivo
     if ([photo fileDataRepresentation]) {
         metadata[@"fileFormat"] = @"JPEG";
         metadata[@"fileSize"] = @([photo fileDataRepresentation].length);
-    }
-    
-    // Metadados contidos na foto
-    if (@available(iOS 11.0, *)) {
-        NSDictionary *metadataDict = photo.metadata;
-        if (metadataDict) {
-            // Extrair EXIF, GPS, etc.
-            NSDictionary *exif = metadataDict[(NSString *)kCGImagePropertyExifDictionary];
-            if (exif) {
-                metadata[@"exif"] = exif;
-            }
-            
-            NSDictionary *gps = metadataDict[(NSString *)kCGImagePropertyGPSDictionary];
-            if (gps) {
-                metadata[@"gps"] = gps;
-            }
-            
-            NSDictionary *tiff = metadataDict[(NSString *)kCGImagePropertyTIFFDictionary];
-            if (tiff) {
-                metadata[@"tiff"] = tiff;
-            }
-        }
     }
     
     return metadata;
@@ -131,7 +84,6 @@ static NSString *FourCCToString(FourCharCode code) {
         case kCGColorSpaceModelPattern: return @"Pattern";
         default: return [NSString stringWithFormat:@"Other (%ld)", (long)model];
     }
-}
 }
 
 #pragma mark - EXIF Metadata
@@ -165,18 +117,6 @@ static NSString *FourCCToString(FourCharCode code) {
             metadata[@"gps"] = gps;
         }
         
-        // TIFF
-        NSDictionary *tiff = props[(NSString *)kCGImagePropertyTIFFDictionary];
-        if (tiff) {
-            metadata[@"tiff"] = tiff;
-        }
-        
-        // JFIF
-        NSDictionary *jfif = props[(NSString *)kCGImagePropertyJFIFDictionary];
-        if (jfif) {
-            metadata[@"jfif"] = jfif;
-        }
-        
         // Outras propriedades básicas
         NSNumber *width = props[(NSString *)kCGImagePropertyPixelWidth];
         if (width) {
@@ -186,16 +126,6 @@ static NSString *FourCCToString(FourCharCode code) {
         NSNumber *height = props[(NSString *)kCGImagePropertyPixelHeight];
         if (height) {
             metadata[@"height"] = height;
-        }
-        
-        NSNumber *orientation = props[(NSString *)kCGImagePropertyOrientation];
-        if (orientation) {
-            metadata[@"orientation"] = orientation;
-        }
-        
-        NSNumber *dpi = props[(NSString *)kCGImagePropertyDPIWidth];
-        if (dpi) {
-            metadata[@"dpi"] = dpi;
         }
     }
     
@@ -225,21 +155,6 @@ static NSString *FourCCToString(FourCharCode code) {
         CMVideoDimensions dimensions = CMVideoFormatDescriptionGetDimensions(formatDescription);
         formatInfo[@"width"] = @(dimensions.width);
         formatInfo[@"height"] = @(dimensions.height);
-        
-        // Obter informações de codec
-        CFDictionaryRef extensionsDictionary = CMFormatDescriptionGetExtensions(formatDescription);
-        if (extensionsDictionary) {
-            NSDictionary *extensions = (__bridge NSDictionary *)extensionsDictionary;
-            
-            // Nome do codec
-            CFStringRef codecName = CMFormatDescriptionGetExtension(formatDescription, kCMFormatDescriptionExtension_FormatName);
-            if (codecName) {
-                formatInfo[@"codecName"] = (__bridge NSString *)codecName;
-            }
-            
-            // Outras extensões
-            formatInfo[@"extensions"] = extensions;
-        }
     }
     // Informações específicas de áudio
     else if (mediaType == kCMMediaType_Audio) {
@@ -247,7 +162,6 @@ static NSString *FourCCToString(FourCharCode code) {
         if (audioDesc) {
             formatInfo[@"sampleRate"] = @(audioDesc->mSampleRate);
             formatInfo[@"channelsPerFrame"] = @(audioDesc->mChannelsPerFrame);
-            formatInfo[@"bitsPerChannel"] = @(audioDesc->mBitsPerChannel);
         }
     }
     
@@ -262,12 +176,6 @@ static NSString *FourCCToString(FourCharCode code) {
     }
     
     NSMutableDictionary *formatInfo = [NSMutableDictionary dictionary];
-    
-    // Formato de saída
-    formatInfo[@"uniqueID"] = settings.uniqueID;
-    
-    // Detalhes do formato da foto
-    formatInfo[@"rawPhotoEnabled"] = @([settings isRawPhotoEnabled]);
     
     // Dicionário de formato de preview
     NSDictionary *previewFormat = settings.previewPhotoFormat;
@@ -292,12 +200,6 @@ static NSString *FourCCToString(FourCharCode code) {
             [formatsArray addObject:FourCCToString([format unsignedIntValue])];
         }
         formatInfo[@"availablePreviewFormats"] = formatsArray;
-    }
-    
-    // iOS 11+ propriedades
-    if (@available(iOS 11.0, *)) {
-        formatInfo[@"livePhotoEnabled"] = @([settings isLivePhotoEnabled]);
-        formatInfo[@"depthDataEnabled"] = @([settings isDepthDataEnabled]);
     }
     
     return formatInfo;
@@ -326,12 +228,6 @@ static NSString *FourCCToString(FourCharCode code) {
     bufferInfo[@"bytesPerRow"] = @(CVPixelBufferGetBytesPerRow(pixelBuffer));
     bufferInfo[@"dataSize"] = @(CVPixelBufferGetDataSize(pixelBuffer));
     bufferInfo[@"planeCount"] = @(CVPixelBufferGetPlaneCount(pixelBuffer));
-    
-    // Extensões
-    CFDictionaryRef attachments = CVBufferGetAttachments(pixelBuffer, kCVAttachmentMode_ShouldPropagate);
-    if (attachments) {
-        bufferInfo[@"attachments"] = (__bridge NSDictionary *)attachments;
-    }
     
     return bufferInfo;
 }
@@ -372,11 +268,7 @@ static NSString *FourCCToString(FourCharCode code) {
     // Espelhamento
     transformInfo[@"videoMirrored"] = @(connection.isVideoMirrored);
     
-    // Estabilização
-    if ([connection respondsToSelector:@selector(preferredVideoStabilizationMode)]) {
-        transformInfo[@"stabilizationMode"] = @(connection.preferredVideoStabilizationMode);
-        transformInfo[@"activeStabilizationMode"] = @(connection.activeVideoStabilizationMode);
-    }
-    
     return transformInfo;
 }
+
+@end

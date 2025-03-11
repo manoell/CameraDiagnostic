@@ -33,7 +33,7 @@
     }
     
     // Registrar no log
-    logJSON(@{
+    logJSONWithDescription(@{
         @"videoOrientation": @(videoOrientation),
         @"orientationDescription": orientationDesc,
         @"timestamp": [NSDate date].description
@@ -48,7 +48,7 @@
 - (void)setVideoMirrored:(BOOL)videoMirrored {
     %orig;
     
-    logJSON(@{
+    logJSONWithDescription(@{
         @"videoMirrored": @(videoMirrored),
         @"timestamp": [NSDate date].description
     }, LogCategoryOrientation, @"Espelhamento de vídeo configurado");
@@ -78,7 +78,7 @@
             break;
     }
     
-    logJSON(@{
+    logJSONWithDescription(@{
         @"stabilizationMode": @(preferredVideoStabilizationMode),
         @"stabilizationModeString": stabModeString,
         @"timestamp": [NSDate date].description
@@ -90,7 +90,7 @@
     %orig;
     
     // Extrair componentes da matriz de transformação
-    logJSON(@{
+    logJSONWithDescription(@{
         @"transform": @{
             @"a": @(videoTransform.a),  // escala x
             @"b": @(videoTransform.b),  // cisalhamento y
@@ -139,7 +139,7 @@
     
     // Verificar se a orientação é válida antes de registrar
     if (orientation != UIDeviceOrientationUnknown) {
-        logJSON(@{
+        logJSONWithDescription(@{
             @"deviceOrientation": @(orientation),
             @"orientationString": orientationString,
             @"timestamp": [NSDate date].description
@@ -179,7 +179,7 @@
             break;
     }
     
-    logJSON(@{
+    logJSONWithDescription(@{
         @"interfaceOrientation": @(orientation),
         @"orientationString": orientationString,
         @"animated": @(animated),

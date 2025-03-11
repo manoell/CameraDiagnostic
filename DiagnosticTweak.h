@@ -5,7 +5,7 @@
 #import <AVFoundation/AVFoundation.h>
 #import <CoreMedia/CoreMedia.h>
 #import <CoreVideo/CoreVideo.h>
-#import <Photos/Photos.h>
+// Removemos a importação do Photos daqui
 #import <objc/runtime.h>
 
 // Imports dos utilitários

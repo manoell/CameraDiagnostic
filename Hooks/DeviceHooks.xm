@@ -36,16 +36,10 @@
                 formatDetails[@"minISO"] = @(device.activeFormat.minISO);
                 
                 // Obter range de frame rate
-                CMTimeRange frameRateRange = format.videoSupportedFrameRateRanges.firstObject.minFrameDuration;
-                if (frameRateRange.duration.timescale > 0) {
-                    double minFrameRate = 1.0 / CMTimeGetSeconds(frameRateRange.duration);
-                    formatDetails[@"minFrameRate"] = @(minFrameRate);
-                }
-                
-                frameRateRange = format.videoSupportedFrameRateRanges.firstObject.maxFrameDuration;
-                if (frameRateRange.duration.timescale > 0) {
-                    double maxFrameRate = 1.0 / CMTimeGetSeconds(frameRateRange.duration);
-                    formatDetails[@"maxFrameRate"] = @(maxFrameRate);
+                AVFrameRateRange *frameRateRange = format.videoSupportedFrameRateRanges.firstObject;
+                if (frameRateRange) {
+                    formatDetails[@"minFrameRate"] = @(frameRateRange.minFrameRate);
+                    formatDetails[@"maxFrameRate"] = @(frameRateRange.maxFrameRate);
                 }
                 
                 // Determinar se é câmera frontal ou traseira
@@ -69,7 +63,7 @@
                 formatDetails[@"deviceType"] = device.localizedName ?: @"unknown";
                 formatDetails[@"uniqueID"] = device.uniqueID ?: @"unknown";
                 
-                logJSON(formatDetails, LogCategoryDevice, [NSString stringWithFormat:@"Características da câmera %@", isFrontCamera ? @"frontal" : @"traseira"]);
+                logJSONWithDescription(formatDetails, LogCategoryDevice, [NSString stringWithFormat:@"Características da câmera %@", isFrontCamera ? @"frontal" : @"traseira"]);
             }
         }
     }
@@ -88,7 +82,7 @@
     // Atualizar a resolução atual com base na câmera em uso
     g_cameraResolution = isFrontCamera ? g_frontCameraResolution : g_backCameraResolution;
     
-    logJSON(@{
+    logJSONWithDescription(@{
         @"cameraPosition": @(position),
         @"isFrontCamera": @(isFrontCamera),
         @"resolution": NSStringFromCGSize(g_cameraResolution)
@@ -106,7 +100,7 @@
         // Extrair informações detalhadas do formato
         NSDictionary *formatInfo = [MetadataExtractor videoFormatInfoFromDescription:formatDescription];
         if (formatInfo) {
-            logJSON(formatInfo, LogCategoryFormat, @"Formato ativo alterado");
+            logJSONWithDescription(formatInfo, LogCategoryFormat, @"Formato ativo alterado");
         }
     }
 }
@@ -115,9 +109,28 @@
 - (void)setExposureMode:(AVCaptureExposureMode)exposureMode {
     %orig;
     
-    logJSON(@{
+    NSString *exposureModeString;
+    switch (exposureMode) {
+        case AVCaptureExposureModeLocked:
+            exposureModeString = @"Locked";
+            break;
+        case AVCaptureExposureModeAutoExpose:
+            exposureModeString = @"AutoExpose";
+            break;
+        case AVCaptureExposureModeContinuousAutoExposure:
+            exposureModeString = @"ContinuousAutoExposure";
+            break;
+        case AVCaptureExposureModeCustom:
+            exposureModeString = @"Custom";
+            break;
+        default:
+            exposureModeString = @"Unknown";
+            break;
+    }
+    
+    logJSONWithDescription(@{
         @"exposureMode": @(exposureMode),
-        @"exposureModeString": [self stringForExposureMode:exposureMode]
+        @"exposureModeString": exposureModeString
     }, LogCategoryDevice, @"Configuração de exposição alterada");
 }
 
@@ -125,9 +138,25 @@
 - (void)setFocusMode:(AVCaptureFocusMode)focusMode {
     %orig;
     
-    logJSON(@{
+    NSString *focusModeString;
+    switch (focusMode) {
+        case AVCaptureFocusModeLocked:
+            focusModeString = @"Locked";
+            break;
+        case AVCaptureFocusModeAutoFocus:
+            focusModeString = @"AutoFocus";
+            break;
+        case AVCaptureFocusModeContinuousAutoFocus:
+            focusModeString = @"ContinuousAutoFocus";
+            break;
+        default:
+            focusModeString = @"Unknown";
+            break;
+    }
+    
+    logJSONWithDescription(@{
         @"focusMode": @(focusMode),
-        @"focusModeString": [self stringForFocusMode:focusMode]
+        @"focusModeString": focusModeString
     }, LogCategoryDevice, @"Configuração de foco alterada");
 }
 
@@ -135,9 +164,25 @@
 - (void)setWhiteBalanceMode:(AVCaptureWhiteBalanceMode)whiteBalanceMode {
     %orig;
     
-    logJSON(@{
+    NSString *whiteBalanceModeString;
+    switch (whiteBalanceMode) {
+        case AVCaptureWhiteBalanceModeLocked:
+            whiteBalanceModeString = @"Locked";
+            break;
+        case AVCaptureWhiteBalanceModeAutoWhiteBalance:
+            whiteBalanceModeString = @"AutoWhiteBalance";
+            break;
+        case AVCaptureWhiteBalanceModeContinuousAutoWhiteBalance:
+            whiteBalanceModeString = @"ContinuousAutoWhiteBalance";
+            break;
+        default:
+            whiteBalanceModeString = @"Unknown";
+            break;
+    }
+    
+    logJSONWithDescription(@{
         @"whiteBalanceMode": @(whiteBalanceMode),
-        @"whiteBalanceModeString": [self stringForWhiteBalanceMode:whiteBalanceMode]
+        @"whiteBalanceModeString": whiteBalanceModeString
     }, LogCategoryDevice, @"Configuração de balanço de branco alterada");
 }
 
@@ -145,9 +190,25 @@
 - (void)setFlashMode:(AVCaptureFlashMode)flashMode {
     %orig;
     
-    logJSON(@{
+    NSString *flashModeString;
+    switch (flashMode) {
+        case AVCaptureFlashModeOff:
+            flashModeString = @"Off";
+            break;
+        case AVCaptureFlashModeOn:
+            flashModeString = @"On";
+            break;
+        case AVCaptureFlashModeAuto:
+            flashModeString = @"Auto";
+            break;
+        default:
+            flashModeString = @"Unknown";
+            break;
+    }
+    
+    logJSONWithDescription(@{
         @"flashMode": @(flashMode),
-        @"flashModeString": [self stringForFlashMode:flashMode]
+        @"flashModeString": flashModeString
     }, LogCategoryDevice, @"Configuração de flash alterada");
 }
 
@@ -155,62 +216,26 @@
 - (void)setTorchMode:(AVCaptureTorchMode)torchMode {
     %orig;
     
-    logJSON(@{
+    NSString *torchModeString;
+    switch (torchMode) {
+        case AVCaptureTorchModeOff:
+            torchModeString = @"Off";
+            break;
+        case AVCaptureTorchModeOn:
+            torchModeString = @"On";
+            break;
+        case AVCaptureTorchModeAuto:
+            torchModeString = @"Auto";
+            break;
+        default:
+            torchModeString = @"Unknown";
+            break;
+    }
+    
+    logJSONWithDescription(@{
         @"torchMode": @(torchMode),
-        @"torchModeString": [self stringForTorchMode:torchMode]
+        @"torchModeString": torchModeString
     }, LogCategoryDevice, @"Configuração de luz auxiliar alterada");
-}
-
-// Métodos auxiliares para obter string descritiva para cada modo
-%new
-- (NSString *)stringForExposureMode:(AVCaptureExposureMode)mode {
-    switch (mode) {
-        case AVCaptureExposureModeLocked: return @"Locked";
-        case AVCaptureExposureModeAutoExpose: return @"AutoExpose";
-        case AVCaptureExposureModeContinuousAutoExposure: return @"ContinuousAutoExposure";
-        case AVCaptureExposureModeCustom: return @"Custom";
-        default: return @"Unknown";
-    }
-}
-
-%new
-- (NSString *)stringForFocusMode:(AVCaptureFocusMode)mode {
-    switch (mode) {
-        case AVCaptureFocusModeLocked: return @"Locked";
-        case AVCaptureFocusModeAutoFocus: return @"AutoFocus";
-        case AVCaptureFocusModeContinuousAutoFocus: return @"ContinuousAutoFocus";
-        default: return @"Unknown";
-    }
-}
-
-%new
-- (NSString *)stringForWhiteBalanceMode:(AVCaptureWhiteBalanceMode)mode {
-    switch (mode) {
-        case AVCaptureWhiteBalanceModeLocked: return @"Locked";
-        case AVCaptureWhiteBalanceModeAutoWhiteBalance: return @"AutoWhiteBalance";
-        case AVCaptureWhiteBalanceModeContinuousAutoWhiteBalance: return @"ContinuousAutoWhiteBalance";
-        default: return @"Unknown";
-    }
-}
-
-%new
-- (NSString *)stringForFlashMode:(AVCaptureFlashMode)mode {
-    switch (mode) {
-        case AVCaptureFlashModeOff: return @"Off";
-        case AVCaptureFlashModeOn: return @"On";
-        case AVCaptureFlashModeAuto: return @"Auto";
-        default: return @"Unknown";
-    }
-}
-
-%new
-- (NSString *)stringForTorchMode:(AVCaptureTorchMode)mode {
-    switch (mode) {
-        case AVCaptureTorchModeOff: return @"Off";
-        case AVCaptureTorchModeOn: return @"On";
-        case AVCaptureTorchModeAuto: return @"Auto";
-        default: return @"Unknown";
-    }
 }
 
 %end

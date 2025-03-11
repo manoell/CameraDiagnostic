@@ -14,7 +14,7 @@
         // Registrar classe do delegate
         NSString *delegateClass = NSStringFromClass([sampleBufferDelegate class]);
         
-        logJSON(@{
+        logJSONWithDescription(@{
             @"delegateClass": delegateClass ?: @"unknown",
             @"hasQueue": sampleBufferCallbackQueue ? @YES : @NO,
             @"timestamp": [NSDate date].description
@@ -58,18 +58,18 @@
         
         // Outras configurações
         for (NSString *key in videoSettings) {
-            if (![key isEqual:(id)kCVPixelBufferWidthKey] && 
-                ![key isEqual:(id)kCVPixelBufferHeightKey] && 
+            if (![key isEqual:(id)kCVPixelBufferWidthKey] &&
+                ![key isEqual:(id)kCVPixelBufferHeightKey] &&
                 ![key isEqual:(id)kCVPixelBufferPixelFormatTypeKey]) {
                 settingsInfo[key] = videoSettings[key];
             }
         }
         
-        logJSON(settingsInfo, LogCategoryVideo, @"Configurações de saída de vídeo definidas");
+        logJSONWithDescription(settingsInfo, LogCategoryVideo, @"Configurações de saída de vídeo definidas");
         
         // Registrar na sessão
         if (settingsInfo[@"width"] && settingsInfo[@"height"]) {
-            NSString *resolution = [NSString stringWithFormat:@"%@x%@", 
+            NSString *resolution = [NSString stringWithFormat:@"%@x%@",
                                    settingsInfo[@"width"], settingsInfo[@"height"]];
             logSessionInfo(@"videoOutputResolution", resolution);
         }
@@ -93,7 +93,7 @@
         // Registrar classe do delegate
         NSString *delegateClass = NSStringFromClass([sampleBufferDelegate class]);
         
-        logJSON(@{
+        logJSONWithDescription(@{
             @"delegateClass": delegateClass ?: @"unknown",
             @"hasQueue": sampleBufferCallbackQueue ? @YES : @NO,
             @"timestamp": [NSDate date].description
@@ -115,7 +115,7 @@
     
     g_isRecordingVideo = YES;
     
-    logJSON(@{
+    logJSONWithDescription(@{
         @"outputFileURL": outputFileURL.absoluteString ?: @"unknown",
         @"delegateClass": NSStringFromClass([delegate class]) ?: @"unknown",
         @"timestamp": [NSDate date].description
@@ -132,7 +132,7 @@
     
     g_isRecordingVideo = NO;
     
-    logJSON(@{
+    logJSONWithDescription(@{
         @"timestamp": [NSDate date].description
     }, LogCategoryVideo, @"Gravação de vídeo finalizada");
     
@@ -193,7 +193,7 @@
             logSessionInfo(@"frameHeight", @(CVPixelBufferGetHeight(imageBuffer)));
         }
         
-        logJSON(frameInfo, LogCategoryVideo, [NSString stringWithFormat:@"Frame #%d capturado", frameCounter]);
+        logJSONWithDescription(frameInfo, LogCategoryVideo, [NSString stringWithFormat:@"Frame #%d capturado", frameCounter]);
     }
     
     %orig;

@@ -63,9 +63,7 @@ extern "C" {
 
 void logMessage(NSString *message, LogLevel level, LogCategory category);
 void logJSON(NSDictionary *jsonData, LogCategory category);
-void logJSONWithDescription(NSDictionary *jsonData, LogCategory category, NSString *description) {
-    [[DiagnosticLogger sharedInstance] logJSONData:jsonData forCategory:category withDescription:description];
-}
+void logJSONWithDescription(NSDictionary *jsonData, LogCategory category, NSString *description);
 void startNewLogSession(void);
 void finalizeLogSession(void);
 void setLogSessionValue(NSString *key, id value);

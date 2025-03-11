@@ -1,0 +1,9 @@
+Package: com.yourname.cameradiagnostic
+Name: CameraDiagnostic
+Version: 0.1.0
+Architecture: iphoneos-arm
+Description: Ferramenta de diagnóstico para câmera do iOS
+Maintainer: Seu Nome <seu.email@example.com>
+Author: Seu Nome <seu.email@example.com>
+Section: System
+Depends: mobilesubstrate (>= 0.9.5000)

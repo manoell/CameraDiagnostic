@@ -24,7 +24,7 @@
         captureInfo[@"timestamp"] = [NSDate date].description;
         
         // Registrar informações no log
-        logJSON(captureInfo, LogCategoryPhoto, @"Captura de foto iniciada");
+        logJSONWithDescription(captureInfo, LogCategoryPhoto, @"Captura de foto iniciada");
         
         // Registrar na sessão de diagnóstico
         logSessionInfo(@"photoCapturing", @YES);
@@ -67,7 +67,7 @@
             imageInfo[@"bytesPerRow"] = @(CGImageGetBytesPerRow(originalImage));
             
             // Registrar informações no log
-            logJSON(imageInfo, LogCategoryPhoto, @"CGImageRepresentation chamado para foto");
+            logJSONWithDescription(imageInfo, LogCategoryPhoto, @"CGImageRepresentation chamado para foto");
             
             // Registrar dimensões da foto na sessão
             NSString *photoResolution = [NSString stringWithFormat:@"%@ x %@",
@@ -87,7 +87,7 @@
         NSDictionary *bufferInfo = [MetadataExtractor pixelBufferInfoFromBuffer:buffer];
         
         // Registrar informações no log
-        logJSON(bufferInfo, LogCategoryPhoto, @"pixelBuffer chamado para foto");
+        logJSONWithDescription(bufferInfo, LogCategoryPhoto, @"pixelBuffer chamado para foto");
         
         // Registrar formato de pixel na sessão
         if (bufferInfo[@"pixelFormat"]) {
@@ -108,7 +108,7 @@
         // Registrar tamanho do arquivo
         NSMutableDictionary *fileInfo = [NSMutableDictionary dictionary];
         fileInfo[@"fileSize"] = @(fileData.length);
-        fileInfo[@"fileSizeFormatted"] = [NSByteCountFormatter stringFromByteCount:fileData.length 
+        fileInfo[@"fileSizeFormatted"] = [NSByteCountFormatter stringFromByteCount:fileData.length
                                                                         countStyle:NSByteCountFormatterCountStyleFile];
         
         // Adicionar metadados EXIF
@@ -117,7 +117,7 @@
         }
         
         // Registrar informações no log
-        logJSON(fileInfo, LogCategoryPhoto, @"fileDataRepresentation chamado para foto");
+        logJSONWithDescription(fileInfo, LogCategoryPhoto, @"fileDataRepresentation chamado para foto");
         
         // Registrar tamanho do arquivo na sessão
         logSessionInfo(@"photoCaptureFileSize", fileInfo[@"fileSizeFormatted"]);
@@ -134,7 +134,7 @@
     
     if (g_isCapturingPhoto && metadata) {
         // Registrar informações no log
-        logJSON(metadata, LogCategoryMetadata, @"Metadados de foto capturados");
+        logJSONWithDescription(metadata, LogCategoryMetadata, @"Metadados de foto capturados");
     }
     
     return metadata;
@@ -157,12 +157,12 @@
     if (photoSampleBuffer && CMSampleBufferIsValid(photoSampleBuffer)) {
         NSDictionary *bufferInfo = [MetadataExtractor metadataFromSampleBuffer:photoSampleBuffer];
         
-        logJSON(bufferInfo, LogCategoryPhoto, @"Processamento de foto finalizado (iOS 10)");
+        logJSONWithDescription(bufferInfo, LogCategoryPhoto, @"Processamento de foto finalizado (iOS 10)");
     }
     
     // Verificar se houve erro
     if (error) {
-        logJSON(@{
+        logJSONWithDescription(@{
             @"code": @(error.code),
             @"domain": error.domain ?: @"unknown",
             @"description": error.localizedDescription ?: @"unknown",
@@ -190,11 +190,11 @@
     if (photo) {
         NSDictionary *photoInfo = [MetadataExtractor metadataFromCapturePhoto:photo];
         
-        logJSON(photoInfo, LogCategoryPhoto, @"Processamento de foto finalizado (iOS 11+)");
+        logJSONWithDescription(photoInfo, LogCategoryPhoto, @"Processamento de foto finalizado (iOS 11+)");
         
         // Verificar se temos informações de dimensões
         if (photoInfo[@"width"] && photoInfo[@"height"]) {
-            NSString *resolution = [NSString stringWithFormat:@"%@ x %@", 
+            NSString *resolution = [NSString stringWithFormat:@"%@ x %@",
                                    photoInfo[@"width"], photoInfo[@"height"]];
             logSessionInfo(@"photoFinalResolution", resolution);
         }
@@ -202,7 +202,7 @@
     
     // Verificar se houve erro
     if (error) {
-        logJSON(@{
+        logJSONWithDescription(@{
             @"code": @(error.code),
             @"domain": error.domain ?: @"unknown",
             @"description": error.localizedDescription ?: @"unknown",
