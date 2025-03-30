@@ -5,7 +5,6 @@
 #import <AVFoundation/AVFoundation.h>
 #import <CoreMedia/CoreMedia.h>
 #import <CoreVideo/CoreVideo.h>
-// Removemos a importação do Photos daqui
 #import <objc/runtime.h>
 
 // Imports dos utilitários
@@ -37,5 +36,8 @@ void logSessionInfo(NSString *key, id value);
 
 // Função para finalizar e salvar o diagnóstico
 void finalizeDiagnosticSession(void);
+
+// Função para iniciar sessão de log específica para um aplicativo
+void startNewLogSessionForApp(NSString *appName, NSString *bundleId);
 
 #endif /* DIAGNOSTIC_TWEAK_H */

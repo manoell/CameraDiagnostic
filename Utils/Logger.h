@@ -50,6 +50,7 @@ typedef NS_ENUM(NSInteger, LogCategory) {
 
 // Diagnóstico
 - (void)startNewSession;
+- (void)startNewSessionForApp:(NSString *)appName bundleId:(NSString *)bundleId; // Novo método
 - (void)setSessionValue:(id)value forKey:(NSString *)key;
 - (NSDictionary *)currentSessionData;
 - (void)finalizeSessionWithCompletion:(void(^)(NSURL *fileURL, NSError *error))completion;
@@ -65,6 +66,7 @@ void logMessage(NSString *message, LogLevel level, LogCategory category);
 void logJSON(NSDictionary *jsonData, LogCategory category);
 void logJSONWithDescription(NSDictionary *jsonData, LogCategory category, NSString *description);
 void startNewLogSession(void);
+void startNewLogSessionForApp(NSString *appName, NSString *bundleId); // Nova função
 void finalizeLogSession(void);
 void setLogSessionValue(NSString *key, id value);
 
