@@ -7,13 +7,6 @@
 #import <CoreVideo/CoreVideo.h>
 #import <objc/runtime.h>
 
-// Imports dos utilitários
-#import "Utils/Logger.h"
-#import "Utils/MetadataExtractor.h"
-
-// Definição para verificação de versão do iOS
-#define SYSTEM_VERSION_GREATER_THAN_OR_EQUAL_TO(v) ([[[UIDevice currentDevice] systemVersion] compare:v options:NSNumericSearch] != NSOrderedAscending)
-
 // Variáveis globais compartilhadas entre arquivos
 extern NSString *g_sessionId;
 extern NSString *g_appName;
@@ -25,19 +18,15 @@ extern int g_videoOrientation;
 extern BOOL g_isCapturingPhoto;
 extern BOOL g_isRecordingVideo;
 extern BOOL g_usingFrontCamera;
-extern NSDictionary *g_lastPhotoMetadata;
-extern NSMutableDictionary *g_sessionInfo;
+extern uint64_t g_frameCounter;
 
 // Função para iniciar uma nova sessão de diagnóstico
 void startNewDiagnosticSession(void);
 
-// Função para registrar informações da sessão
-void logSessionInfo(NSString *key, id value);
-
 // Função para finalizar e salvar o diagnóstico
 void finalizeDiagnosticSession(void);
 
-// Função para iniciar sessão de log específica para um aplicativo
-void startNewLogSessionForApp(NSString *appName, NSString *bundleId);
+// Utilitário para converter formato de pixel para string legível
+NSString *pixelFormatToString(OSType format);
 
 #endif /* DIAGNOSTIC_TWEAK_H */

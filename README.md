@@ -1,127 +1,71 @@
 # CameraDiagnostic
 
-![Badge](https://img.shields.io/badge/iOS-14.0%2B-blue)
-![Badge](https://img.shields.io/badge/Status-Beta-yellow)
+## Descrição
 
-## Visão Geral
-
-CameraDiagnostic é uma ferramenta de diagnóstico para iOS jailbroken que coleta informações detalhadas sobre o funcionamento da câmera em diferentes aplicativos. Desenvolvida para ser usada em conjunto com o tweak VCamMJPEG, esta ferramenta diagnostica e registra as características exatas da câmera nativa para permitir aprimoramentos na substituição do feed de câmera.
-
-## Objetivo
-
-O principal objetivo desta ferramenta é coletar informações cruciais sobre como cada aplicativo utiliza a câmera, incluindo:
-
-- Resoluções nativas de câmeras (frontal/traseira)
-- Orientações de vídeo e transformações aplicadas
-- Formatos de pixel e configurações de buffer
-- Metadados de captura de fotos
-- Ajustes específicos de cada aplicativo
-
-Estas informações permitem que o VCamMJPEG realize a substituição do feed da câmera de forma transparente e universal, emulando exatamente as características esperadas por cada aplicativo.
+CameraDiagnostic é uma ferramenta de diagnóstico avançada para câmeras em dispositivos iOS com jailbreak. Projetada para monitorar e registrar detalhadamente o funcionamento da câmera em qualquer aplicativo, esta ferramenta fornece informações técnicas essenciais para desenvolvedores que trabalham com substituição de feed de câmera, câmeras virtuais e integração com WebRTC.
 
 ## Características
 
-### Diagnóstico Abrangente
-- Monitoramento de AVCaptureSession
-- Detecção de características da câmera do dispositivo
-- Análise de orientações e transformações de vídeo
-- Captura de metadados de fotos e vídeos
-- Extração de formatos e configurações
+- **Diagnóstico Universal**: Monitora o uso da câmera em qualquer aplicativo iOS, sem exceções
+- **Captura Detalhada**: Registra informações técnicas precisas sobre formato de pixel, resolução, FPS, orientação e muitos outros parâmetros
+- **Análise de Frames**: Monitora os frames brutos da câmera, permitindo entender exatamente como aplicativos processam o feed de vídeo
+- **Compatibilidade com WebRTC**: Fornece todos os detalhes necessários para implementação de soluções de câmera virtual com WebRTC
+- **Logging Inteligente**: Salva apenas informações relevantes, evitando sobrecarga desnecessária
+- **Análise por Aplicativo**: Gera arquivos JSON detalhados para cada aplicativo monitorado
 
-### Logging Detalhado
-- Formato JSON para fácil análise
-- Organização por sessões e categorias
-- Timestamp em cada evento registrado
-- Armazenamento eficiente e bem estruturado
+## Uso Técnico
 
-### Compatibilidade Universal
-- Funciona em qualquer aplicativo que use a câmera
-- Mesmo sistema de hooks do VCamMJPEG
-- Diagnóstico não intrusivo (não modifica comportamento)
-- Suporte a iOS 10 até versões recentes
+O CameraDiagnostic funciona através de hooks em várias classes da framework AVFoundation, incluindo:
 
-## Arquitetura do Projeto
+- `AVCaptureDevice`: Para detectar quando aplicativos solicitam acesso à câmera
+- `AVCaptureSession`: Para monitorar início e fim de sessões de câmera
+- `AVCaptureVideoDataOutput`: Para analisar frames brutos de vídeo
+- `AVCaptureConnection`: Para detectar mudanças de orientação e espelhamento
+- `AVCapturePhotoOutput`: Para monitorar captura de fotos
 
-O projeto está organizado em componentes bem definidos:
+### Informações Coletadas
 
-- **Core**
-  - `DiagnosticTweak.h/.xm`: Núcleo do tweak e gestão de sessões
-  - `Filter.plist`: Configuração de aplicativos suportados
-  
-- **Utils**
-  - `Logger.h/.m`: Sistema de logging com suporte a JSON
-  - `MetadataExtractor.h/.m`: Extração de dados da câmera e mídia
-  
-- **Hooks**
-  - `CaptureSessionHooks.xm`: Monitora AVCaptureSession
-  - `DeviceHooks.xm`: Monitora características do dispositivo de câmera
-  - `OrientationHooks.xm`: Monitora orientações de vídeo
-  - `VideoOutputHooks.xm`: Monitora saídas de vídeo e frames
-  - `PhotoOutputHooks.xm`: Monitora captura de fotos
+- Resolução da câmera (frontal e traseira)
+- Formato de pixel (420f, 420v, BGRA, etc.)
+- Taxa de frames real durante operação (FPS)
+- Orientação e espelhamento de vídeo
+- Dimensões de layers de preview
+- Timing de frames para análise de performance
+- Configurações de sessão (presets, formatos, etc.)
+- Metadados de captura de foto
 
-## Funcionamento
+## Instalação
 
-1. O tweak é carregado quando um aplicativo que usa a câmera é iniciado
-2. Cada interação com a câmera é monitorada e registrada
-3. Informações detalhadas são salvas em arquivos JSON
-4. Cada aplicativo gera sua própria sessão de diagnóstico
-5. Os logs são armazenados em `/var/mobile/Documents/CameraDiagnostic/`
+1. Certifique-se de ter o Theos instalado no seu sistema
+2. Clone este repositório
+3. Compile o projeto usando `make package install`
+4. O tweak será instalado automaticamente no dispositivo conectado
 
-## Como Usar
+## Arquivos de Diagnóstico
 
-### Instalação
+Os diagnósticos são salvos em:
+- `/var/tmp/CameraDiagnostic/diagnostic.log`: Log em tempo real de todos os eventos
+- `/var/tmp/CameraDiagnostic/[AppName]_[BundleID]_diagnostics.json`: Informações detalhadas específicas por aplicativo
 
-1. Compile o projeto usando o Theos:
-   ```bash
-   make package
-   ```
+## Uso com WebRTC
 
-2. Instale o pacote .deb no dispositivo com jailbreak:
-   ```bash
-   make install
-   ```
+Este diagnóstico foi especialmente desenvolvido para auxiliar na implementação de câmeras virtuais com WebRTC:
 
-### Coletando Dados
+- Fornece todos os parâmetros necessários para criar streams WebRTC compatíveis com aplicativos iOS
+- Identifica formatos de pixel específicos usados por cada aplicativo
+- Detecta mudanças de orientação e configuração em tempo real
+- Registra informações de timing para sincronização perfeita
 
-1. Abra os aplicativos que deseja diagnosticar (Camera, Instagram, Snapchat, etc.)
-2. Use a câmera normalmente, incluindo:
-   - Alternar entre câmeras frontal e traseira
-   - Mudar orientação do dispositivo
-   - Capturar fotos
-   - Gravar vídeos (se aplicável)
+## Compatibilidade
 
-3. Acesse os logs em `/var/mobile/Documents/CameraDiagnostic/`
+- Dispositivos iOS com jailbreak
+- Compatível com iOS 14 ou superior
+- Testado em aplicativos como Câmera nativa, Telegram, WhatsApp, Safari (WebRTC)
 
-### Analisando Resultados
+## Desenvolvimento Futuro
 
-Os arquivos JSON contêm informações organizadas por categorias:
-- **session**: Informações gerais da sessão
-- **device**: Características do dispositivo de câmera
-- **video**: Configurações de vídeo
-- **photo**: Configurações de foto
-- **orientation**: Orientações detectadas
-- **format**: Formatos de mídia
-- **metadata**: Metadados diversos
-
-## Integrando com VCamMJPEG
-
-Os dados coletados podem ser usados para:
-1. Identificar diferentes implementações entre aplicativos
-2. Resolver problemas de compatibilidade
-3. Implementar adaptações dinâmicas no VCamMJPEG
-
-## Requisitos
-
-- iOS 10.0 até versões recentes
-- Dispositivo com jailbreak
-- Theos para compilação
-
-## Próximos Passos
-
-- Implementar auto-diagnóstico no VCamMJPEG
-- Criar sistema de adaptação dinâmica
-- Expandir compatibilidade com mais aplicativos
+A ferramenta foi desenvolvida para trabalhar em conjunto com projetos de câmera virtual, focando em fornecer diagnósticos precisos e completos para auxiliar no desenvolvimento de soluções avançadas de substituição de câmera.
 
 ## Licença
 
-Código fonte disponível para uso pessoal e educacional.
+Este projeto é disponibilizado sob a licença MIT.

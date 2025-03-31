@@ -3,52 +3,36 @@
 // Variáveis para registro de dados por aplicativo
 static NSMutableDictionary *appDiagnosticData = nil;
 
-// Flag para controlar se o app atual deve ser monitorado
+// Flag para controlar se o app atual está sendo monitorado
 static BOOL g_isTargetApp = NO;
+
+// Variáveis para medição de FPS e latência
+static NSTimeInterval g_lastFrameTime = 0;
+static NSMutableArray *g_frameTimes = nil;
 
 // Declarações antecipadas de funções
 static void saveDiagnosticData(void);
 static void logToFile(NSString *message);
 
-// Verificar se o aplicativo é adequado para diagnóstico
-static BOOL isAppSuitableForDiagnostic() {
-    // Lista de bundle IDs conhecidos por causarem problemas
-    static NSArray *excludedBundleIds = nil;
-    static dispatch_once_t onceToken;
-    dispatch_once(&onceToken, ^{
-        excludedBundleIds = @[
-            @"com.apple.springboard",
-            @"com.apple.backboardd",
-            // Outros processos do sistema podem ser adicionados aqui
-        ];
-    });
-    
-    NSString *bundleId = [[NSBundle mainBundle] bundleIdentifier] ?: @"unknown";
-    
-    // Verifica se o bundle ID está na lista de exclusão
-    if ([excludedBundleIds containsObject:bundleId]) {
-        return NO;
-    }
-    
-    return YES;
-}
-
-// Ativar diagnóstico para o app atual
+// Ativar diagnóstico para o app atual - sem nenhuma filtragem
 static void activateForCurrentApp() {
     if (g_isTargetApp) return; // Já ativado
     
-    // Verificar se este app deve ser monitorado
-    if (!isAppSuitableForDiagnostic()) return;
+    // Ativar para qualquer aplicativo, sem restrições
+    g_isTargetApp = YES;
     
     NSString *bundleId = [[NSBundle mainBundle] bundleIdentifier] ?: @"unknown";
     NSString *appName = [NSProcessInfo processInfo].processName;
-    
-    g_isTargetApp = YES;
     
     // Inicializar dicionário de diagnóstico
     if (!appDiagnosticData) {
         appDiagnosticData = [NSMutableDictionary dictionary];
     }
+    
+    // Inicializar variáveis de controle de frames
+    g_lastFrameTime = 0;
+    g_frameTimes = [NSMutableArray array];
+    g_frameCounter = 0;
     
     // Registrar ativação
     logToFile([NSString stringWithFormat:@"Ativando diagnóstico para: %@ (%@)", appName, bundleId]);
@@ -57,7 +41,7 @@ static void activateForCurrentApp() {
     startNewDiagnosticSession();
 }
 
-// Log para arquivo de texto com prevenção de erros - similar ao vcam_log do VCamWebRTC
+// Log para arquivo de texto simplificado
 static void logToFile(NSString *message) {
     if (!message) return;
     
@@ -74,7 +58,7 @@ static void logToFile(NSString *message) {
                              [[NSBundle mainBundle] bundleIdentifier] ?: @"unknown"];
         NSString *logMessage = [NSString stringWithFormat:@"[%@] [%@] %@\n", timestamp, appInfo, message];
         
-        // Criar arquivo ou adicionar ao existente - abordagem similar ao VCamWebRTC
+        // Criar arquivo ou adicionar ao existente
         NSFileManager *fileManager = [NSFileManager defaultManager];
         if (![fileManager fileExistsAtPath:logDir]) {
             [fileManager createDirectoryAtPath:logDir
@@ -104,6 +88,16 @@ static void addDiagnosticData(NSString *eventType, NSDictionary *eventData) {
     if (!eventType || !eventData || !g_isTargetApp) return;
     
     @try {
+        static NSSet *importantEventTypes = nil;
+        static dispatch_once_t onceToken;
+        dispatch_once(&onceToken, ^{
+            importantEventTypes = [NSSet setWithArray:@[
+                @"sessionStart", @"sessionStop", @"photoCapture",
+                @"videoFrame", @"cameraRequest", @"orientation",
+                @"fpsStats", @"mirroring"
+            ]];
+        });
+        
         @synchronized(appDiagnosticData) {
             if (!appDiagnosticData) {
                 appDiagnosticData = [NSMutableDictionary dictionary];
@@ -132,8 +126,12 @@ static void addDiagnosticData(NSString *eventType, NSDictionary *eventData) {
             NSMutableArray *events = appDiagnosticData[bundleId][@"events"];
             [events addObject:event];
             
-            // Salvar dados atualizados
-            saveDiagnosticData();
+            // Só logar mensagem para eventos importantes
+            if ([importantEventTypes containsObject:eventType]) {
+                logToFile([NSString stringWithFormat:@"Evento registrado: %@", eventType]);
+                // Salvar dados atualizados
+                saveDiagnosticData();
+            }
         }
     } @catch (NSException *exception) {
         logToFile([NSString stringWithFormat:@"Erro ao adicionar dados de diagnóstico: %@", exception]);
@@ -174,7 +172,6 @@ static void saveDiagnosticData(void) {
                                                                      error:&error];
                 if (jsonData) {
                     [jsonData writeToFile:filePath atomically:YES];
-                    logToFile([NSString stringWithFormat:@"Diagnóstico atualizado para %@", appName]);
                 } else {
                     logToFile([NSString stringWithFormat:@"Erro ao salvar diagnóstico: %@", error.localizedDescription]);
                 }
@@ -185,7 +182,9 @@ static void saveDiagnosticData(void) {
     }
 }
 
-// Hook para AVCaptureDevice igual ao do VCamWebRTC
+// ----- INÍCIO DOS HOOKS DE DIAGNÓSTICO -----
+
+// Hook para AVCaptureDevice
 %hook AVCaptureDevice
 
 + (AVCaptureDevice *)defaultDeviceWithMediaType:(NSString *)mediaType {
@@ -196,17 +195,50 @@ static void saveDiagnosticData(void) {
             // Quando um app solicita a câmera, marcamos como app de interesse
             activateForCurrentApp();
             
-            NSString *bundleId = [[NSBundle mainBundle] bundleIdentifier] ?: @"unknown";
-            NSString *appName = [NSProcessInfo processInfo].processName;
-            
-            logToFile([NSString stringWithFormat:@"Câmera solicitada por: %@ (%@)", appName, bundleId]);
-            
             if (g_isTargetApp && device) {
-                addDiagnosticData(@"cameraRequest", @{
-                    @"mediaType": mediaType,
-                    @"deviceName": device.localizedName ?: @"unknown",
-                    @"devicePosition": @(device.position)
-                });
+                logToFile([NSString stringWithFormat:@"Câmera solicitada: %@ (posição: %d)",
+                          device.localizedName ?: @"unknown", (int)device.position]);
+                
+                NSMutableDictionary *deviceInfo = [NSMutableDictionary dictionary];
+                deviceInfo[@"deviceName"] = device.localizedName ?: @"unknown";
+                deviceInfo[@"devicePosition"] = @(device.position);
+                deviceInfo[@"uniqueID"] = device.uniqueID ?: @"unknown";
+                
+                // Extrair informações detalhadas de formato para WebRTC
+                AVCaptureDeviceFormat *format = device.activeFormat;
+                if (format) {
+                    NSMutableDictionary *formatInfo = [NSMutableDictionary dictionary];
+                    
+                    // Dimensões do formato
+                    CMFormatDescriptionRef formatDesc = format.formatDescription;
+                    if (formatDesc) {
+                        CMVideoDimensions dimensions = CMVideoFormatDescriptionGetDimensions(formatDesc);
+                        formatInfo[@"width"] = @(dimensions.width);
+                        formatInfo[@"height"] = @(dimensions.height);
+                    }
+                    
+                    // Ranges de FPS suportados
+                    NSMutableArray *fpsRanges = [NSMutableArray array];
+                    for (AVFrameRateRange *range in format.videoSupportedFrameRateRanges) {
+                        [fpsRanges addObject:@{
+                            @"minFrameRate": @(range.minFrameRate),
+                            @"maxFrameRate": @(range.maxFrameRate),
+                            @"defaultFrameRate": @(range.maxFrameDuration.timescale / range.maxFrameDuration.value)
+                        }];
+                    }
+                    formatInfo[@"supportedFrameRates"] = fpsRanges;
+                    
+                    // Formato de pixel
+                    if (formatDesc) {
+                        FourCharCode subType = CMFormatDescriptionGetMediaSubType(formatDesc);
+                        formatInfo[@"pixelFormat"] = @(subType);
+                        formatInfo[@"pixelFormatString"] = pixelFormatToString(subType);
+                    }
+                    
+                    deviceInfo[@"activeFormat"] = formatInfo;
+                }
+                
+                addDiagnosticData(@"cameraRequest", deviceInfo);
             }
         }
     } @catch (NSException *exception) {
@@ -218,31 +250,7 @@ static void saveDiagnosticData(void) {
 
 %end
 
-// Hook para adicionar camada de visualização similar ao VCamWebRTC
-%hook AVCaptureVideoPreviewLayer
-
-- (void)addSublayer:(CALayer *)layer {
-    %orig;
-    
-    @try {
-        // Detectar uso da câmera
-        activateForCurrentApp();
-        
-        if (g_isTargetApp) {
-            logToFile(@"AVCaptureVideoPreviewLayer addSublayer chamado");
-            
-            addDiagnosticData(@"previewLayerSublayer", @{
-                @"layerClass": NSStringFromClass([layer class]) ?: @"unknown"
-            });
-        }
-    } @catch (NSException *exception) {
-        logToFile([NSString stringWithFormat:@"Erro ao processar addSublayer: %@", exception]);
-    }
-}
-
-%end
-
-// Hook para AVCaptureSession similar ao VCamWebRTC
+// Hook para AVCaptureSession
 %hook AVCaptureSession
 
 - (void)startRunning {
@@ -253,7 +261,7 @@ static void saveDiagnosticData(void) {
         logToFile(@"AVCaptureSession startRunning chamado");
         
         @try {
-            // Salvar informações da sessão
+            // Salvar informações essenciais da sessão
             NSMutableDictionary *sessionInfo = [NSMutableDictionary dictionary];
             
             // Capturar preset da sessão
@@ -261,37 +269,34 @@ static void saveDiagnosticData(void) {
                 sessionInfo[@"sessionPreset"] = [self sessionPreset] ?: @"unknown";
             }
             
-            // Capturar informações de inputs
+            // Capturar resolução e posição da câmera (frontal/traseira)
+            BOOL foundCameraInfo = NO;
+            
             if ([self respondsToSelector:@selector(inputs)]) {
                 NSArray *inputs = [self inputs];
-                NSMutableArray *inputsInfo = [NSMutableArray array];
                 
                 for (AVCaptureInput *input in inputs) {
-                    NSMutableDictionary *inputDict = [NSMutableDictionary dictionary];
-                    inputDict[@"class"] = NSStringFromClass([input class]);
-                    
                     if ([input isKindOfClass:[AVCaptureDeviceInput class]]) {
                         AVCaptureDeviceInput *deviceInput = (AVCaptureDeviceInput *)input;
                         AVCaptureDevice *device = deviceInput.device;
                         
                         if (device) {
-                            inputDict[@"deviceName"] = device.localizedName ?: @"unknown";
-                            inputDict[@"uniqueID"] = device.uniqueID ?: @"unknown";
-                            inputDict[@"position"] = @(device.position);
+                            sessionInfo[@"deviceName"] = device.localizedName ?: @"unknown";
+                            sessionInfo[@"uniqueID"] = device.uniqueID ?: @"unknown";
                             
                             // Câmera frontal/traseira
                             BOOL isFrontCamera = (device.position == AVCaptureDevicePositionFront);
                             g_usingFrontCamera = isFrontCamera;
-                            inputDict[@"isFrontCamera"] = @(isFrontCamera);
+                            sessionInfo[@"isFrontCamera"] = @(isFrontCamera);
                             
-                            // Formato da câmera
+                            // Formato da câmera (importante para virtual cam)
                             AVCaptureDeviceFormat *format = device.activeFormat;
                             if (format) {
                                 CMFormatDescriptionRef formatDesc = format.formatDescription;
                                 if (formatDesc) {
                                     CMVideoDimensions dimensions = CMVideoFormatDescriptionGetDimensions(formatDesc);
-                                    inputDict[@"width"] = @(dimensions.width);
-                                    inputDict[@"height"] = @(dimensions.height);
+                                    sessionInfo[@"width"] = @(dimensions.width);
+                                    sessionInfo[@"height"] = @(dimensions.height);
                                     
                                     // Salvar resolução global
                                     CGSize resolution = CGSizeMake(dimensions.width, dimensions.height);
@@ -302,132 +307,77 @@ static void saveDiagnosticData(void) {
                                     }
                                     g_cameraResolution = resolution;
                                     
+                                    // Adicionar format mediaSubtype
+                                    FourCharCode subType = CMFormatDescriptionGetMediaSubType(formatDesc);
+                                    sessionInfo[@"formatSubType"] = @(subType);
+                                    sessionInfo[@"formatSubTypeString"] = pixelFormatToString(subType);
+                                    
                                     // Adicionar dimensões ao log
                                     logToFile([NSString stringWithFormat:@"Resolução da câmera: %dx%d",
                                               (int)dimensions.width, (int)dimensions.height]);
+                                    
+                                    foundCameraInfo = YES;
                                 }
                             }
                             
-                            // Detalhes do formato de vídeo
+                            // Adicionar faixas de FPS suportadas
                             if (format) {
-                                NSMutableArray *frameRates = [NSMutableArray array];
+                                NSMutableArray *fpsRanges = [NSMutableArray array];
                                 for (AVFrameRateRange *range in format.videoSupportedFrameRateRanges) {
-                                    [frameRates addObject:@{
+                                    [fpsRanges addObject:@{
                                         @"minFrameRate": @(range.minFrameRate),
-                                        @"maxFrameRate": @(range.maxFrameRate)
+                                        @"maxFrameRate": @(range.maxFrameRate),
+                                        @"defaultFrameRate": @(range.maxFrameDuration.timescale / range.maxFrameDuration.value)
                                     }];
                                 }
-                                inputDict[@"frameRates"] = frameRates;
+                                sessionInfo[@"supportedFrameRates"] = fpsRanges;
                             }
+                            
+                            break; // Só precisamos de uma câmera
                         }
                     }
-                    
-                    [inputsInfo addObject:inputDict];
                 }
-                
-                sessionInfo[@"inputs"] = inputsInfo;
             }
             
-            // Capturar informações de outputs
-            if ([self respondsToSelector:@selector(outputs)]) {
+            // Se não encontrou informações de resolução, verificar outputs
+            if (!foundCameraInfo && [self respondsToSelector:@selector(outputs)]) {
                 NSArray *outputs = [self outputs];
-                NSMutableArray *outputsInfo = [NSMutableArray array];
                 
                 for (AVCaptureOutput *output in outputs) {
-                    NSMutableDictionary *outputDict = [NSMutableDictionary dictionary];
-                    outputDict[@"class"] = NSStringFromClass([output class]);
-                    
                     if ([output isKindOfClass:[AVCaptureVideoDataOutput class]]) {
                         AVCaptureVideoDataOutput *videoOutput = (AVCaptureVideoDataOutput *)output;
-                        outputDict[@"type"] = @"videoData";
                         
                         if (videoOutput.videoSettings) {
-                            outputDict[@"videoSettings"] = videoOutput.videoSettings;
-                            
-                            // Extrair dimensões
                             id widthValue = videoOutput.videoSettings[(id)kCVPixelBufferWidthKey];
                             id heightValue = videoOutput.videoSettings[(id)kCVPixelBufferHeightKey];
-                            if (widthValue && heightValue) {
-                                outputDict[@"width"] = widthValue;
-                                outputDict[@"height"] = heightValue;
-                            }
                             
-                            // Extrair formato de pixel
-                            id formatValue = videoOutput.videoSettings[(id)kCVPixelBufferPixelFormatTypeKey];
-                            if (formatValue) {
-                                uint32_t pixelFormat = [formatValue unsignedIntValue];
-                                char formatStr[5] = {0};
-                                formatStr[0] = (pixelFormat >> 24) & 0xFF;
-                                formatStr[1] = (pixelFormat >> 16) & 0xFF;
-                                formatStr[2] = (pixelFormat >> 8) & 0xFF;
-                                formatStr[3] = pixelFormat & 0xFF;
+                            if (widthValue && heightValue) {
+                                sessionInfo[@"width"] = widthValue;
+                                sessionInfo[@"height"] = heightValue;
                                 
-                                outputDict[@"pixelFormat"] = formatValue;
-                                outputDict[@"pixelFormatString"] = [NSString stringWithCString:formatStr encoding:NSASCIIStringEncoding];
+                                // Salvar formato de pixel
+                                id formatValue = videoOutput.videoSettings[(id)kCVPixelBufferPixelFormatTypeKey];
+                                if (formatValue) {
+                                    uint32_t pixelFormat = [formatValue unsignedIntValue];
+                                    sessionInfo[@"pixelFormat"] = formatValue;
+                                    sessionInfo[@"pixelFormatString"] = pixelFormatToString(pixelFormat);
+                                }
+                                
+                                logToFile([NSString stringWithFormat:@"Dimensões de saída: %@x%@, formato: %@",
+                                          widthValue, heightValue, sessionInfo[@"pixelFormatString"] ?: @"unknown"]);
+                                
+                                foundCameraInfo = YES;
+                                break;
                             }
                         }
                     }
-                    
-                    [outputsInfo addObject:outputDict];
                 }
-                
-                sessionInfo[@"outputs"] = outputsInfo;
             }
             
-            // Capturar informações de conexões
-            if ([self respondsToSelector:@selector(connections)]) {
-                NSArray *connections = [self connections];
-                NSMutableArray *connectionsInfo = [NSMutableArray array];
-                
-                for (AVCaptureConnection *connection in connections) {
-                    NSMutableDictionary *connectionDict = [NSMutableDictionary dictionary];
-                    connectionDict[@"enabled"] = @(connection.enabled);
-                    
-                    if ([connection isVideoOrientationSupported]) {
-                        connectionDict[@"videoOrientationSupported"] = @YES;
-                        connectionDict[@"videoOrientation"] = @(connection.videoOrientation);
-                        connectionDict[@"videoMirrored"] = @(connection.isVideoMirrored);
-                        
-                        // Mapear orientação para string
-                        NSString *orientationString;
-                        switch (connection.videoOrientation) {
-                            case AVCaptureVideoOrientationPortrait:
-                                orientationString = @"Portrait";
-                                break;
-                            case AVCaptureVideoOrientationPortraitUpsideDown:
-                                orientationString = @"PortraitUpsideDown";
-                                break;
-                            case AVCaptureVideoOrientationLandscapeRight:
-                                orientationString = @"LandscapeRight";
-                                break;
-                            case AVCaptureVideoOrientationLandscapeLeft:
-                                orientationString = @"LandscapeLeft";
-                                break;
-                            default:
-                                orientationString = @"Unknown";
-                                break;
-                        }
-                        connectionDict[@"orientationString"] = orientationString;
-                    }
-                    
-                    // Capturar informações de portas de entrada
-                    NSMutableArray *inputPortsInfo = [NSMutableArray array];
-                    for (AVCaptureInputPort *port in connection.inputPorts) {
-                        [inputPortsInfo addObject:@{
-                            @"mediaType": port.mediaType ?: @"unknown",
-                            @"sourceDevicePosition": @(port.sourceDevicePosition)
-                        }];
-                    }
-                    connectionDict[@"inputPorts"] = inputPortsInfo;
-                    
-                    [connectionsInfo addObject:connectionDict];
-                }
-                
-                sessionInfo[@"connections"] = connectionsInfo;
+            // Adicionar ao diagnóstico do app apenas se encontrou informações úteis
+            if (sessionInfo.count > 1) {
+                addDiagnosticData(@"sessionStart", sessionInfo);
             }
-            
-            // Adicionar ao diagnóstico do app
-            addDiagnosticData(@"sessionStart", sessionInfo);
         } @catch (NSException *exception) {
             logToFile([NSString stringWithFormat:@"Erro ao processar startRunning: %@", exception]);
         }
@@ -440,6 +390,31 @@ static void saveDiagnosticData(void) {
 - (void)stopRunning {
     if (g_isTargetApp) {
         logToFile(@"AVCaptureSession stopRunning chamado");
+        
+        // Registrar estatísticas de FPS ao final da sessão
+        if (g_frameTimes.count > 0) {
+            NSMutableDictionary *fpsStats = [NSMutableDictionary dictionary];
+            
+            // Calcular FPS médio
+            double avgInterval = 0;
+            for (NSNumber *interval in g_frameTimes) {
+                avgInterval += [interval doubleValue];
+            }
+            avgInterval /= g_frameTimes.count;
+            double avgFPS = 1.0 / avgInterval;
+            
+            fpsStats[@"averageFPS"] = @(avgFPS);
+            fpsStats[@"totalFrames"] = @(g_frameCounter);
+            fpsStats[@"sampledFrames"] = @(g_frameTimes.count);
+            
+            // Adicionar ao diagnóstico
+            addDiagnosticData(@"fpsStats", fpsStats);
+            
+            // Reset para próxima sessão
+            g_lastFrameTime = 0;
+            [g_frameTimes removeAllObjects];
+        }
+        
         addDiagnosticData(@"sessionStop", @{@"reason": @"stopRunning chamado"});
     }
     %orig;
@@ -447,7 +422,7 @@ static void saveDiagnosticData(void) {
 
 %end
 
-// Hook para AVCaptureVideoDataOutput similar ao VCamWebRTC
+// Hook para AVCaptureVideoDataOutput - capturar detalhes importantes dos frames
 %hook AVCaptureVideoDataOutput
 
 - (void)setSampleBufferDelegate:(id<AVCaptureVideoDataOutputSampleBufferDelegate>)sampleBufferDelegate queue:(dispatch_queue_t)sampleBufferCallbackQueue {
@@ -458,13 +433,10 @@ static void saveDiagnosticData(void) {
         logToFile(@"AVCaptureVideoDataOutput setSampleBufferDelegate: chamado");
         
         @try {
-            NSMutableDictionary *delegateInfo = [NSMutableDictionary dictionary];
-            delegateInfo[@"delegateClass"] = NSStringFromClass([sampleBufferDelegate class]) ?: @"nil";
-            delegateInfo[@"hasQueue"] = sampleBufferCallbackQueue ? @YES : @NO;
+            // Definir intervalo de frame (a cada 500 frames)
+            static int frameLogInterval = 500;
             
-            addDiagnosticData(@"videoDelegate", delegateInfo);
-            
-            // Baseado no VCamWebRTC: hook dinâmico para o método de delegado
+            // Hook dinâmico para o método de delegado
             if (sampleBufferDelegate != nil && sampleBufferCallbackQueue != nil) {
                 // Lista para controlar quais classes já foram "hooked"
                 static NSMutableArray *hookedDelegates = nil;
@@ -492,19 +464,44 @@ static void saveDiagnosticData(void) {
                             activateForCurrentApp();
                             
                             if (g_isTargetApp) {
-                                static int frameCounter = 0;
-                                frameCounter++;
+                                g_frameCounter++;
                                 
-                                // Limitar logging para 1 a cada 100 frames para não sobrecarregar
-                                if (frameCounter % 100 == 0) {
+                                // Medição de FPS e latência
+                                NSTimeInterval currentTime = [[NSDate date] timeIntervalSince1970];
+                                if (g_lastFrameTime > 0) {
+                                    // Calcular intervalo de frame
+                                    NSTimeInterval frameInterval = currentTime - g_lastFrameTime;
+                                    
+                                    // Manter histórico para média de FPS
+                                    [g_frameTimes addObject:@(frameInterval)];
+                                    
+                                    // Manter apenas os últimos 60 frames para média
+                                    if (g_frameTimes.count > 60) {
+                                        [g_frameTimes removeObjectAtIndex:0];
+                                    }
+                                }
+                                g_lastFrameTime = currentTime;
+                                
+                                // Limitar logging para apenas 1 a cada N frames
+                                if (g_frameCounter % frameLogInterval == 0) {
                                     @try {
-                                        logToFile([NSString stringWithFormat:@"Frame #%d capturado", frameCounter]);
-                                        
                                         NSMutableDictionary *frameInfo = [NSMutableDictionary dictionary];
-                                        frameInfo[@"frameNumber"] = @(frameCounter);
-                                        frameInfo[@"delegateClass"] = NSStringFromClass([self class]);
+                                        frameInfo[@"frameNumber"] = @(g_frameCounter);
                                         
-                                        // Extrair informações do buffer
+                                        // Calcular FPS atual baseado no histórico
+                                        if (g_frameTimes.count > 0) {
+                                            double avgInterval = 0;
+                                            for (NSNumber *interval in g_frameTimes) {
+                                                avgInterval += [interval doubleValue];
+                                            }
+                                            avgInterval /= g_frameTimes.count;
+                                            double avgFPS = 1.0 / avgInterval;
+                                            
+                                            frameInfo[@"currentFPS"] = @(avgFPS);
+                                            frameInfo[@"lastFrameInterval"] = @(((NSNumber *)g_frameTimes.lastObject).doubleValue * 1000); // em ms
+                                        }
+                                        
+                                        // Extrair informações detalhadas do buffer para WebRTC
                                         CVImageBufferRef imageBuffer = CMSampleBufferGetImageBuffer(sampleBuffer);
                                         if (imageBuffer) {
                                             // Dimensões do frame
@@ -513,21 +510,61 @@ static void saveDiagnosticData(void) {
                                             frameInfo[@"width"] = @(width);
                                             frameInfo[@"height"] = @(height);
                                             
-                                            logToFile([NSString stringWithFormat:@"Frame: %zux%zu", width, height]);
+                                            // Formato de pixel
+                                            OSType pixelFormat = CVPixelBufferGetPixelFormatType(imageBuffer);
+                                            frameInfo[@"pixelFormat"] = pixelFormatToString(pixelFormat);
+                                            
+                                            // Informações de buffer avançadas para WebRTC
+                                            frameInfo[@"bytesPerRow"] = @(CVPixelBufferGetBytesPerRow(imageBuffer));
+                                            frameInfo[@"planeCount"] = @(CVPixelBufferGetPlaneCount(imageBuffer));
+                                            frameInfo[@"dataSize"] = @(CVPixelBufferGetDataSize(imageBuffer));
+                                            
+                                            logToFile([NSString stringWithFormat:@"Frame #%llu: %zux%zu, formato: %@",
+                                                    g_frameCounter, width, height, frameInfo[@"pixelFormat"]]);
                                         }
                                         
-                                        // Capturar informações de conexão
+                                        // Informações de tempo do buffer (para sincronização WebRTC)
+                                        CMTime presentationTime = CMSampleBufferGetPresentationTimeStamp(sampleBuffer);
+                                        CMTime duration = CMSampleBufferGetDuration(sampleBuffer);
+                                        
+                                        frameInfo[@"presentationTimeSeconds"] = @(CMTimeGetSeconds(presentationTime));
+                                        frameInfo[@"durationSeconds"] = @(CMTimeGetSeconds(duration));
+                                        
+                                        // Informações de conexão
                                         if (connection) {
+                                            NSMutableDictionary *connectionInfo = [NSMutableDictionary dictionary];
+                                            
+                                            // Orientação
                                             if ([connection isVideoOrientationSupported]) {
-                                                AVCaptureVideoOrientation orientation = connection.videoOrientation;
-                                                frameInfo[@"videoOrientation"] = @(orientation);
+                                                connectionInfo[@"videoOrientation"] = @(connection.videoOrientation);
                                                 
                                                 // Salvar orientação global
-                                                g_videoOrientation = (int)orientation;
+                                                g_videoOrientation = (int)connection.videoOrientation;
                                             }
                                             
                                             // Espelhamento
-                                            frameInfo[@"videoMirrored"] = @(connection.isVideoMirrored);
+                                            connectionInfo[@"videoMirrored"] = @(connection.isVideoMirrored);
+                                            
+                                            // Portas de entrada
+                                            NSMutableArray *inputPorts = [NSMutableArray array];
+                                            for (AVCaptureInputPort *port in connection.inputPorts) {
+                                                [inputPorts addObject:@{
+                                                    @"mediaType": port.mediaType ?: @"unknown",
+                                                    @"sourcePosition": @(port.sourceDevicePosition)
+                                                }];
+                                            }
+                                            connectionInfo[@"inputPorts"] = inputPorts;
+                                            
+                                            // Estabilização
+                                            if ([connection respondsToSelector:@selector(isVideoStabilizationEnabled)]) {
+                                                connectionInfo[@"videoStabilizationEnabled"] = @([connection isVideoStabilizationEnabled]);
+                                                
+                                                if ([connection respondsToSelector:@selector(activeVideoStabilizationMode)]) {
+                                                    connectionInfo[@"videoStabilizationMode"] = @([connection activeVideoStabilizationMode]);
+                                                }
+                                            }
+                                            
+                                            frameInfo[@"connection"] = connectionInfo;
                                         }
                                         
                                         // Adicionar ao diagnóstico
@@ -561,7 +598,6 @@ static void saveDiagnosticData(void) {
         
         @try {
             NSMutableDictionary *settingsInfo = [NSMutableDictionary dictionary];
-            settingsInfo[@"fullSettings"] = videoSettings ?: @{};
             
             // Extrair dimensões e formato de pixel
             id widthValue = videoSettings[(id)kCVPixelBufferWidthKey];
@@ -577,16 +613,10 @@ static void saveDiagnosticData(void) {
             
             if (formatValue) {
                 uint32_t pixelFormat = [formatValue unsignedIntValue];
-                char formatStr[5] = {0};
-                formatStr[0] = (pixelFormat >> 24) & 0xFF;
-                formatStr[1] = (pixelFormat >> 16) & 0xFF;
-                formatStr[2] = (pixelFormat >> 8) & 0xFF;
-                formatStr[3] = pixelFormat & 0xFF;
-                
                 settingsInfo[@"pixelFormat"] = formatValue;
-                settingsInfo[@"pixelFormatString"] = [NSString stringWithCString:formatStr encoding:NSASCIIStringEncoding];
+                settingsInfo[@"pixelFormatString"] = pixelFormatToString(pixelFormat);
                 
-                logToFile([NSString stringWithFormat:@"Formato de pixel: %s", formatStr]);
+                logToFile([NSString stringWithFormat:@"Formato de pixel: %@", settingsInfo[@"pixelFormatString"]]);
             }
             
             addDiagnosticData(@"videoSettings", settingsInfo);
@@ -600,7 +630,7 @@ static void saveDiagnosticData(void) {
 
 %end
 
-// Hook para orientação de vídeo
+// Hook para orientação de vídeo - importante para câmera virtual
 %hook AVCaptureConnection
 
 - (void)setVideoOrientation:(AVCaptureVideoOrientation)videoOrientation {
@@ -609,23 +639,12 @@ static void saveDiagnosticData(void) {
     
     if (g_isTargetApp) {
         @try {
-            logToFile([NSString stringWithFormat:@"AVCaptureConnection setVideoOrientation: %d", (int)videoOrientation]);
-            
             // Salvar orientação global
             g_videoOrientation = (int)videoOrientation;
             
-            // Criar informações para diagnóstico
-            NSMutableDictionary *orientationInfo = [NSMutableDictionary dictionary];
-            orientationInfo[@"orientation"] = @(videoOrientation);
-            
+            // Converter para string legível
             NSString *orientationString;
             switch (videoOrientation) {
-                case AVCaptureVideoOrientationPortrait:
-                    orientationString = @"Portrait";
-                    break;
-                case AVCaptureVideoOrientationPortraitUpsideDown:
-                    orientationString = @"PortraitUpsideDown";
-                    break;
                 case AVCaptureVideoOrientationLandscapeRight:
                     orientationString = @"LandscapeRight";
                     break;
@@ -636,10 +655,14 @@ static void saveDiagnosticData(void) {
                     orientationString = @"Unknown";
                     break;
             }
-            orientationInfo[@"orientationString"] = orientationString;
+            
+            logToFile([NSString stringWithFormat:@"Orientação do vídeo alterada para: %@", orientationString]);
             
             // Adicionar ao diagnóstico
-            addDiagnosticData(@"orientation", orientationInfo);
+            addDiagnosticData(@"orientation", @{
+                @"orientation": @(videoOrientation),
+                @"orientationString": orientationString
+            });
         } @catch (NSException *exception) {
             logToFile([NSString stringWithFormat:@"Erro ao processar setVideoOrientation: %@", exception]);
         }
@@ -654,13 +677,30 @@ static void saveDiagnosticData(void) {
     
     if (g_isTargetApp) {
         @try {
-            logToFile([NSString stringWithFormat:@"AVCaptureConnection setVideoMirrored: %@", videoMirrored ? @"YES" : @"NO"]);
+            logToFile([NSString stringWithFormat:@"Espelhamento de vídeo: %@", videoMirrored ? @"SIM" : @"NÃO"]);
             
             addDiagnosticData(@"mirroring", @{
                 @"videoMirrored": @(videoMirrored)
             });
         } @catch (NSException *exception) {
             logToFile([NSString stringWithFormat:@"Erro ao processar setVideoMirrored: %@", exception]);
+        }
+    }
+    
+    %orig;
+}
+
+// Para WebRTC: estabilização de vídeo
+- (void)setEnablesVideoStabilizationWhenAvailable:(BOOL)enablesVideoStabilization {
+    if (g_isTargetApp) {
+        @try {
+            logToFile([NSString stringWithFormat:@"Estabilização de vídeo: %@", enablesVideoStabilization ? @"SIM" : @"NÃO"]);
+            
+            addDiagnosticData(@"stabilization", @{
+                @"videoStabilizationEnabled": @(enablesVideoStabilization)
+            });
+        } @catch (NSException *exception) {
+            logToFile([NSString stringWithFormat:@"Erro ao processar setEnablesVideoStabilizationWhenAvailable: %@", exception]);
         }
     }
     
@@ -678,12 +718,12 @@ static void saveDiagnosticData(void) {
     
     if (g_isTargetApp) {
         @try {
-            logToFile(@"AVCapturePhotoOutput capturePhotoWithSettings: chamado");
+            logToFile(@"Foto sendo capturada");
             
             // Registrar que estamos capturando uma foto
             g_isCapturingPhoto = YES;
             
-            // Extrair informações das configurações
+            // Extrair informações essenciais
             NSMutableDictionary *photoInfo = [NSMutableDictionary dictionary];
             photoInfo[@"delegateClass"] = NSStringFromClass([delegate class]) ?: @"nil";
             
@@ -691,15 +731,18 @@ static void saveDiagnosticData(void) {
                 // Formato de preview
                 NSDictionary *previewFormat = settings.previewPhotoFormat;
                 if (previewFormat) {
-                    photoInfo[@"previewFormat"] = previewFormat;
-                    
                     // Extrair dimensões se disponíveis
                     id width = previewFormat[(NSString *)kCVPixelBufferWidthKey];
                     id height = previewFormat[(NSString *)kCVPixelBufferHeightKey];
                     if (width && height) {
                         photoInfo[@"previewWidth"] = width;
                         photoInfo[@"previewHeight"] = height;
+                        
+                        logToFile([NSString stringWithFormat:@"Dimensões de preview: %@x%@", width, height]);
                     }
+                    
+                    // Adicionar formato completo de preview
+                    photoInfo[@"previewFormat"] = previewFormat;
                 }
                 
                 // Formatos disponíveis
@@ -708,16 +751,7 @@ static void saveDiagnosticData(void) {
                     NSMutableArray *formatsArray = [NSMutableArray array];
                     for (NSNumber *format in availableFormats) {
                         uint32_t pixelFormat = [format unsignedIntValue];
-                        char formatStr[5] = {0};
-                        formatStr[0] = (pixelFormat >> 24) & 0xFF;
-                        formatStr[1] = (pixelFormat >> 16) & 0xFF;
-                        formatStr[2] = (pixelFormat >> 8) & 0xFF;
-                        formatStr[3] = pixelFormat & 0xFF;
-                        
-                        [formatsArray addObject:@{
-                            @"format": format,
-                            @"formatString": [NSString stringWithCString:formatStr encoding:NSASCIIStringEncoding]
-                        }];
+                        [formatsArray addObject:pixelFormatToString(pixelFormat)];
                     }
                     photoInfo[@"availableFormats"] = formatsArray;
                 }
@@ -731,7 +765,7 @@ static void saveDiagnosticData(void) {
             // Adicionar ao diagnóstico
             addDiagnosticData(@"photoCapture", photoInfo);
             
-            // Hook adicional para o delegate da foto - inspirado no VCamWebRTC
+            // Hook para o delegate da captura de foto
             if (delegate != nil) {
                 static NSMutableArray *hookedPhotoCaptureDelegates = nil;
                 static dispatch_once_t onceToken;
@@ -748,7 +782,7 @@ static void saveDiagnosticData(void) {
                     
                     logToFile([NSString stringWithFormat:@"Hooking photo capture delegate: %@", className]);
                     
-                    // Hook para o método que recebe a foto capturada
+                    // Hook para o método que recebe a foto capturada (iOS 10-11)
                     if ([delegate respondsToSelector:@selector(captureOutput:didFinishProcessingPhotoSampleBuffer:previewPhotoSampleBuffer:resolvedSettings:bracketSettings:error:)]) {
                         __block void (*original_photo_method)(id self, SEL _cmd, AVCapturePhotoOutput *captureOutput, CMSampleBufferRef photoSampleBuffer, CMSampleBufferRef previewPhotoSampleBuffer, AVCaptureResolvedPhotoSettings *resolvedSettings, AVCaptureBracketedStillImageSettings *bracketSettings, NSError *error) = nil;
                         
@@ -789,7 +823,7 @@ static void saveDiagnosticData(void) {
                             (IMP*)&original_photo_method
                         );
                     }
-                    // Método alternativo para iOS mais recentes
+                    // Método alternativo para iOS 12+
                     else if ([delegate respondsToSelector:@selector(captureOutput:didFinishProcessingPhoto:error:)]) {
                         __block void (*original_photo_method2)(id self, SEL _cmd, AVCapturePhotoOutput *captureOutput, AVCapturePhoto *photo, NSError *error) = nil;
                         
@@ -842,7 +876,7 @@ static void saveDiagnosticData(void) {
 
 %end
 
-// Capturar redimensionamento de view (importante para problemas de layout)
+// Capturar mudanças de frame em views da câmera
 %hook UIView
 
 - (void)setFrame:(CGRect)frame {
@@ -857,18 +891,17 @@ static void saveDiagnosticData(void) {
         static dispatch_once_t onceToken;
         dispatch_once(&onceToken, ^{
             relevantClassNames = [NSSet setWithArray:@[
-                @"UIImageView", @"AVCaptureVideoPreviewLayer", @"CALayer",
-                @"PreviewView", @"CameraView", @"VideoPreviewView",
-                @"CAMVideoPreviewView", @"CAMPreviewView", @"CAMPanoramaPreviewView"
+                @"AVCaptureVideoPreviewLayer", @"CAMPreviewView", @"CAMVideoPreviewView",
+                @"CAMPanoramaPreviewView", @"TGCameraPreviewView"
             ]];
         });
         
         NSString *className = NSStringFromClass([self class]);
         BOOL isRelevantView = NO;
         
-        // Verificar se o nome da classe contém alguma das palavras-chave
+        // Verificar se o nome da classe está na lista de relevantes
         for (NSString *relevantName in relevantClassNames) {
-            if ([className containsString:relevantName]) {
+            if ([className isEqualToString:relevantName] || [className containsString:relevantName]) {
                 isRelevantView = YES;
                 break;
             }
@@ -876,8 +909,8 @@ static void saveDiagnosticData(void) {
         
         // Se for uma view relevante para a câmera, registrar a mudança de frame
         if (isRelevantView) {
-            logToFile([NSString stringWithFormat:@"View %@ frame alterada para: {{%.1f, %.1f}, {%.1f, %.1f}}",
-                      className, frame.origin.x, frame.origin.y, frame.size.width, frame.size.height]);
+            logToFile([NSString stringWithFormat:@"View da câmera alterada: {{%.1f, %.1f}, {%.1f, %.1f}}",
+                      frame.origin.x, frame.origin.y, frame.size.width, frame.size.height]);
             
             addDiagnosticData(@"viewFrameChange", @{
                 @"viewClass": className,
@@ -894,126 +927,9 @@ static void saveDiagnosticData(void) {
 
 %end
 
-// Capturar alterações de bounds e layout (similar ao método no VCamWebRTC)
-%hook UIWindow
-
-- (void)layoutSubviews {
-    %orig;
-    
-    if (!g_isTargetApp) {
-        return;
-    }
-    
-    @try {
-        // Registrar informações de layout da janela principal
-        CGRect bounds = self.bounds;
-        CGRect frame = self.frame;
-        
-        logToFile([NSString stringWithFormat:@"UIWindow layout: bounds={{%.1f, %.1f}, {%.1f, %.1f}}, frame={{%.1f, %.1f}, {%.1f, %.1f}}",
-                  bounds.origin.x, bounds.origin.y, bounds.size.width, bounds.size.height,
-                  frame.origin.x, frame.origin.y, frame.size.width, frame.size.height]);
-        
-        addDiagnosticData(@"windowLayout", @{
-            @"boundsX": @(bounds.origin.x),
-            @"boundsY": @(bounds.origin.y),
-            @"boundsWidth": @(bounds.size.width),
-            @"boundsHeight": @(bounds.size.height),
-            @"frameX": @(frame.origin.x),
-            @"frameY": @(frame.origin.y),
-            @"frameWidth": @(frame.size.width),
-            @"frameHeight": @(frame.size.height)
-        });
-    } @catch (NSException *exception) {
-        logToFile([NSString stringWithFormat:@"Erro ao processar layoutSubviews: %@", exception]);
-    }
-}
-
-%end
-
-// Hook para webviews (para capturar uso da câmera em sites)
-%hook WKWebView
-
-// Detecção de acesso a câmera via web
-- (void)loadRequest:(NSURLRequest *)request {
-    %orig;
-    
-    @try {
-        // Procura por strings que indiquem uso da câmera
-        if ([request.URL.absoluteString containsString:@"getUserMedia"] ||
-            [request.URL.absoluteString containsString:@"camera"] ||
-            [request.URL.absoluteString containsString:@"webcam"]) {
-            
-            logToFile([NSString stringWithFormat:@"Possível requisição de câmera via Web: %@", request.URL]);
-            
-            // Ativar monitoramento para este app
-            activateForCurrentApp();
-        }
-    } @catch (NSException *exception) {
-        logToFile([NSString stringWithFormat:@"Erro ao analisar requisição web: %@", exception]);
-    }
-}
-
-%end
-
-// Hook adicional para WKWebView para iOS 15+
-%hook WKWebView
-
-// Este método é chamado quando sites solicitam acesso a câmera/microfone
-- (void)_requestMediaCapturePermissionForOrigin:(id)origin mainFrameURL:(NSURL *)mainFrameURL decisionHandler:(void (^)(int))decisionHandler {
-    logToFile(@"Permissão para captura de mídia solicitada via WebKit");
-    
-    // Ativar monitoramento para este app
-    activateForCurrentApp();
-    
-    if (g_isTargetApp) {
-        addDiagnosticData(@"webkitCameraPermission", @{
-            @"mainFrameURL": mainFrameURL.absoluteString ?: @"unknown"
-        });
-    }
-    
-    %orig;
-}
-
-%end
-
-// Inicialização do tweak - muito parecido com VCamWebRTC
+// Inicialização do tweak - versão universal, sem filtragem
 %ctor {
     @autoreleasepool {
-        // Log de inicialização básico (independente se é app alvo)
-        NSString *processName = [NSProcessInfo processInfo].processName;
-        NSString *bundleId = [[NSBundle mainBundle] bundleIdentifier] ?: @"unknown";
-        
-        // Criar diretório de logs
-        NSFileManager *fileManager = [NSFileManager defaultManager];
-        NSString *logDir = @"/var/tmp/CameraDiagnostic";
-        if (![fileManager fileExistsAtPath:logDir]) {
-            [fileManager createDirectoryAtPath:logDir
-                  withIntermediateDirectories:YES
-                                   attributes:nil
-                                        error:nil];
-        }
-        
-        // Verificar se este processo deve ser monitorado imediatamente
-        if (isAppSuitableForDiagnostic()) {
-            // Verificar se o processo atual é um aplicativo que usa câmera
-            if ([bundleId containsString:@"camera"] ||
-                [bundleId containsString:@"facetime"] ||
-                [bundleId containsString:@"instagram"] ||
-                [bundleId containsString:@"snapchat"] ||
-                [bundleId containsString:@"tiktok"] ||
-                [bundleId containsString:@"whatsapp"] ||
-                [bundleId containsString:@"telegram"] ||
-                [processName containsString:@"Camera"]) {
-                
-                // Ativar monitoramento imediatamente para aplicativos conhecidos
-                activateForCurrentApp();
-            }
-        }
-        
-        // Log inicial
-        logToFile([NSString stringWithFormat:@"CameraDiagnostic iniciado em: %@ (%@), monitoramento: %@",
-                  processName, bundleId, g_isTargetApp ? @"ATIVO" : @"INATIVO (pendente detecção)"]);
-        
         // Inicializar todos os hooks
         %init;
     }
@@ -1024,6 +940,26 @@ static void saveDiagnosticData(void) {
     @try {
         // Salvar dados antes de descarregar apenas se for app alvo
         if (g_isTargetApp) {
+            // Registrar estatísticas finais de FPS se houver frames capturados
+            if (g_frameTimes.count > 0) {
+                NSMutableDictionary *fpsStats = [NSMutableDictionary dictionary];
+                
+                // Calcular FPS médio
+                double avgInterval = 0;
+                for (NSNumber *interval in g_frameTimes) {
+                    avgInterval += [interval doubleValue];
+                }
+                avgInterval /= g_frameTimes.count;
+                double avgFPS = 1.0 / avgInterval;
+                
+                fpsStats[@"averageFPS"] = @(avgFPS);
+                fpsStats[@"totalFrames"] = @(g_frameCounter);
+                fpsStats[@"sampledFrames"] = @(g_frameTimes.count);
+                
+                // Adicionar ao diagnóstico
+                addDiagnosticData(@"finalFpsStats", fpsStats);
+            }
+            
             logToFile(@"CameraDiagnostic sendo descarregado");
             saveDiagnosticData();
             finalizeDiagnosticSession();

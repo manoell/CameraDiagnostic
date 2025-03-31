@@ -11,63 +11,56 @@ int g_videoOrientation = 0;
 BOOL g_isCapturingPhoto = NO;
 BOOL g_isRecordingVideo = NO;
 BOOL g_usingFrontCamera = NO;
-NSDictionary *g_lastPhotoMetadata = nil;
-NSMutableDictionary *g_sessionInfo = nil;
+uint64_t g_frameCounter = 0;
 
-// Função para iniciar uma nova sessão de diagnóstico com tratamento de erros
+// Utilitário para converter formato de pixel para string legível
+NSString *pixelFormatToString(OSType format) {
+    char formatStr[5] = {0};
+    formatStr[0] = (format >> 24) & 0xFF;
+    formatStr[1] = (format >> 16) & 0xFF;
+    formatStr[2] = (format >> 8) & 0xFF;
+    formatStr[3] = format & 0xFF;
+    
+    return [NSString stringWithCString:formatStr encoding:NSASCIIStringEncoding] ?: @"unknown";
+}
+
+// Função para iniciar uma nova sessão de diagnóstico
 void startNewDiagnosticSession(void) {
     @try {
         // Gerar novo ID de sessão
         g_sessionId = [[NSUUID UUID] UUIDString];
-        g_sessionInfo = [NSMutableDictionary dictionary];
         
         // Obter informações do processo atual
         g_appName = [NSProcessInfo processInfo].processName;
         g_bundleId = [[NSBundle mainBundle] bundleIdentifier] ?: @"unknown";
         
-        // Configurar o logger e iniciar nova sessão
-        startNewLogSession();
+        // Inicializar variáveis de estado
+        g_frameCounter = 0;
+        g_cameraResolution = CGSizeZero;
+        g_frontCameraResolution = CGSizeZero;
+        g_backCameraResolution = CGSizeZero;
+        g_videoOrientation = 0;
+        g_isCapturingPhoto = NO;
+        g_isRecordingVideo = NO;
+        g_usingFrontCamera = NO;
         
-        // Registrar informações básicas da sessão
-        setLogSessionValue(@"sessionId", g_sessionId);
-        setLogSessionValue(@"appName", g_appName);
-        setLogSessionValue(@"bundleId", g_bundleId);
-        setLogSessionValue(@"deviceModel", [[UIDevice currentDevice] model]);
-        setLogSessionValue(@"iosVersion", [[UIDevice currentDevice] systemVersion]);
+        // Registrar informações no log
+        NSLog(@"[CameraDiagnostic] Nova sessão de diagnóstico iniciada para %@ (%@)",
+              g_appName, g_bundleId);
         
-        logMessage([NSString stringWithFormat:@"Nova sessão de diagnóstico iniciada para %@ (%@)",
-                    g_appName, g_bundleId], LogLevelInfo, LogCategorySession);
     } @catch (NSException *exception) {
         // Usar NSLog que é mais seguro em caso de falhas
         NSLog(@"[CameraDiagnostic] Erro ao iniciar sessão: %@", exception);
     }
 }
 
-// Função para registrar informações da sessão com tratamento de erros
-void logSessionInfo(NSString *key, id value) {
-    if (!key || !value) return;
-    
-    @try {
-        // Adicionar ao dicionário da sessão
-        g_sessionInfo[key] = value;
-        
-        // Registrar no log
-        setLogSessionValue(key, value);
-        
-        // Log para console
-        logMessage([NSString stringWithFormat:@"Sessão %@: %@ = %@",
-                    g_sessionId, key, value], LogLevelDebug, LogCategorySession);
-    } @catch (NSException *exception) {
-        NSLog(@"[CameraDiagnostic] Erro ao registrar informação de sessão: %@", exception);
-    }
-}
-
-// Função para finalizar e salvar o diagnóstico com tratamento de erros
+// Função para finalizar e salvar o diagnóstico
 void finalizeDiagnosticSession(void) {
     @try {
         // Adicionar resumo final
         NSMutableDictionary *summary = [NSMutableDictionary dictionary];
         
+        // Adicionar informações sobre a câmera
         if (!CGSizeEqualToSize(g_frontCameraResolution, CGSizeZero)) {
             summary[@"frontCameraResolution"] = NSStringFromCGSize(g_frontCameraResolution);
         }
@@ -76,6 +69,7 @@ void finalizeDiagnosticSession(void) {
             summary[@"backCameraResolution"] = NSStringFromCGSize(g_backCameraResolution);
         }
         
+        // Adicionar informações sobre orientação
         if (g_videoOrientation > 0) {
             summary[@"lastVideoOrientation"] = @(g_videoOrientation);
             
@@ -90,19 +84,12 @@ void finalizeDiagnosticSession(void) {
             summary[@"lastVideoOrientationString"] = orientationString;
         }
         
-        // Combinar com informações de sessão existentes
-        if (g_sessionInfo) {
-            [g_sessionInfo addEntriesFromDictionary:summary];
-            
-            // Adicionar ao log
-            logJSONWithDescription(g_sessionInfo, LogCategorySession, @"Resumo de diagnóstico");
-            
-            // Finalizar sessão
-            finalizeLogSession();
+        // Adicionar informações sobre frames
+        if (g_frameCounter > 0) {
+            summary[@"totalFramesProcessed"] = @(g_frameCounter);
         }
         
-        // Log para console
-        logMessage(@"Sessão de diagnóstico finalizada", LogLevelInfo, LogCategorySession);
+        NSLog(@"[CameraDiagnostic] Sessão de diagnóstico finalizada");
     } @catch (NSException *exception) {
         NSLog(@"[CameraDiagnostic] Erro ao finalizar sessão: %@", exception);
     }
