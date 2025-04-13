@@ -1,4 +1,5 @@
-TARGET := iphone:clang:latest:14
+ARCHS = arm64
+TARGET := iphone:clang:latest:15.0
 INSTALL_TARGET_PROCESSES = SpringBoard
 
 THEOS_DEVICE_IP=192.168.0.181
@@ -11,3 +12,8 @@ CameraDiagnostic_FRAMEWORKS = UIKit AVFoundation CoreMedia CoreVideo CoreGraphic
 
 include $(THEOS)/makefiles/common.mk
 include $(THEOS_MAKE_PATH)/tweak.mk
+
+# Adiciona regra para limpar arquivos temporários
+after-clean::
+	rm -rf ./packages
+	rm -rf ./.theos

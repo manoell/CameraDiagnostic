@@ -1,0 +1,552 @@
+{
+  "events" : [
+    {
+      "devicePosition" : 1,
+      "activeFormat" : {
+        "pixelFormat" : 875704438,
+        "pixelFormatString" : "420v",
+        "width" : 1920,
+        "height" : 1080,
+        "supportedFrameRates" : [
+          {
+            "defaultFrameRate" : 3,
+            "maxFrameRate" : 30,
+            "minFrameRate" : 3
+          }
+        ]
+      },
+      "timestamp" : "2025-04-13 02:05:29 +0000",
+      "eventType" : "cameraRequest",
+      "uniqueID" : "com.apple.avfoundation.avcapturedevice.built-in_video:0",
+      "deviceName" : "Câmera Traseira"
+    },
+    {
+      "timestamp" : "2025-04-13 02:05:29 +0000",
+      "eventType" : "orientation",
+      "orientationString" : "Unknown",
+      "orientation" : 1
+    },
+    {
+      "timestamp" : "2025-04-13 02:05:29 +0000",
+      "eventType" : "videoSettings",
+      "pixelFormat" : 875704438,
+      "pixelFormatString" : "420v"
+    },
+    {
+      "height" : 3024,
+      "sessionPreset" : "AVCaptureSessionPresetPhoto",
+      "uniqueID" : "com.apple.avfoundation.avcapturedevice.built-in_video:0",
+      "deviceName" : "Câmera Traseira",
+      "width" : 4032,
+      "isFrontCamera" : false,
+      "formatSubTypeString" : "420f",
+      "formatSubType" : 875704422,
+      "supportedFrameRates" : [
+        {
+          "defaultFrameRate" : 3,
+          "maxFrameRate" : 30,
+          "minFrameRate" : 3
+        }
+      ],
+      "eventType" : "sessionStart",
+      "timestamp" : "2025-04-13 02:05:29 +0000"
+    },
+    {
+      "height" : 249,
+      "x" : 0,
+      "y" : 0,
+      "eventType" : "viewFrameChange",
+      "width" : 124,
+      "viewClass" : "TGCameraPreviewView",
+      "timestamp" : "2025-04-13 02:05:29 +0000"
+    },
+    {
+      "height" : 249,
+      "x" : 0,
+      "y" : 251,
+      "eventType" : "viewFrameChange",
+      "width" : 124,
+      "viewClass" : "TGCameraPreviewView",
+      "timestamp" : "2025-04-13 02:05:30 +0000"
+    },
+    {
+      "height" : 249,
+      "x" : 0,
+      "y" : 251,
+      "eventType" : "viewFrameChange",
+      "width" : 124,
+      "viewClass" : "TGCameraPreviewView",
+      "timestamp" : "2025-04-13 02:05:30 +0000"
+    },
+    {
+      "height" : 274.4682789763101,
+      "x" : 0,
+      "y" : 229.99627988806299,
+      "eventType" : "viewFrameChange",
+      "width" : 149.4682789763101,
+      "viewClass" : "TGCameraPreviewView",
+      "timestamp" : "2025-04-13 02:05:30 +0000"
+    },
+    {
+      "height" : 327.81552184997838,
+      "x" : 0,
+      "y" : 186.00074492850388,
+      "eventType" : "viewFrameChange",
+      "width" : 202.81552184997838,
+      "viewClass" : "TGCameraPreviewView",
+      "timestamp" : "2025-04-13 02:05:31 +0000"
+    },
+    {
+      "height" : 362.62378796926743,
+      "x" : 0,
+      "y" : 157.2943262564209,
+      "eventType" : "viewFrameChange",
+      "width" : 237.62378796926743,
+      "viewClass" : "TGCameraPreviewView",
+      "timestamp" : "2025-04-13 02:05:31 +0000"
+    },
+    {
+      "height" : 392.5592025230269,
+      "x" : 0,
+      "y" : 132.60655409455555,
+      "eventType" : "viewFrameChange",
+      "width" : 267.5592025230269,
+      "viewClass" : "TGCameraPreviewView",
+      "timestamp" : "2025-04-13 02:05:31 +0000"
+    },
+    {
+      "height" : 417.25275809173996,
+      "x" : 0,
+      "y" : 112.24174930282803,
+      "eventType" : "viewFrameChange",
+      "width" : 292.25275809173996,
+      "viewClass" : "TGCameraPreviewView",
+      "timestamp" : "2025-04-13 02:05:31 +0000"
+    },
+    {
+      "height" : 438.09332081838966,
+      "x" : 0,
+      "y" : 95.054512313120938,
+      "eventType" : "viewFrameChange",
+      "width" : 313.09332081838966,
+      "viewClass" : "TGCameraPreviewView",
+      "timestamp" : "2025-04-13 02:05:31 +0000"
+    },
+    {
+      "height" : 454.19452316933052,
+      "x" : 0,
+      "y" : 81.775831489835042,
+      "eventType" : "viewFrameChange",
+      "width" : 329.19452316933052,
+      "viewClass" : "TGCameraPreviewView",
+      "timestamp" : "2025-04-13 02:05:31 +0000"
+    },
+    {
+      "height" : 466.78478596804769,
+      "x" : 0,
+      "y" : 71.39262671161012,
+      "eventType" : "viewFrameChange",
+      "width" : 341.78478596804769,
+      "viewClass" : "TGCameraPreviewView",
+      "timestamp" : "2025-04-13 02:05:31 +0000"
+    },
+    {
+      "height" : 475.79984461340126,
+      "x" : 0,
+      "y" : 63.957897071816539,
+      "eventType" : "viewFrameChange",
+      "width" : 350.79984461340126,
+      "viewClass" : "TGCameraPreviewView",
+      "timestamp" : "2025-04-13 02:05:31 +0000"
+    },
+    {
+      "height" : 482.82021598548334,
+      "x" : 0,
+      "y" : 58.168188410378313,
+      "eventType" : "viewFrameChange",
+      "width" : 357.82021598548334,
+      "viewClass" : "TGCameraPreviewView",
+      "timestamp" : "2025-04-13 02:05:31 +0000"
+    },
+    {
+      "height" : 487.89426671693843,
+      "x" : 0,
+      "y" : 53.983612707544843,
+      "eventType" : "viewFrameChange",
+      "width" : 362.89426671693843,
+      "viewClass" : "TGCameraPreviewView",
+      "timestamp" : "2025-04-13 02:05:31 +0000"
+    },
+    {
+      "height" : 491.70098251253188,
+      "x" : 0,
+      "y" : 50.844209641059408,
+      "eventType" : "viewFrameChange",
+      "width" : 366.70098251253188,
+      "viewClass" : "TGCameraPreviewView",
+      "timestamp" : "2025-04-13 02:05:31 +0000"
+    },
+    {
+      "height" : 494.34850845635168,
+      "x" : 0,
+      "y" : 48.660791830817587,
+      "eventType" : "viewFrameChange",
+      "width" : 369.34850845635168,
+      "viewClass" : "TGCameraPreviewView",
+      "timestamp" : "2025-04-13 02:05:31 +0000"
+    },
+    {
+      "height" : 496.17504220870342,
+      "x" : 0,
+      "y" : 47.154447262145041,
+      "eventType" : "viewFrameChange",
+      "width" : 371.17504220870342,
+      "viewClass" : "TGCameraPreviewView",
+      "timestamp" : "2025-04-13 02:05:31 +0000"
+    },
+    {
+      "height" : 497.5018586360099,
+      "x" : 0,
+      "y" : 46.060220168709002,
+      "eventType" : "viewFrameChange",
+      "width" : 372.5018586360099,
+      "viewClass" : "TGCameraPreviewView",
+      "timestamp" : "2025-04-13 02:05:31 +0000"
+    },
+    {
+      "height" : 498.3821629026811,
+      "x" : 0,
+      "y" : 45.334232187828782,
+      "eventType" : "viewFrameChange",
+      "width" : 373.3821629026811,
+      "viewClass" : "TGCameraPreviewView",
+      "timestamp" : "2025-04-13 02:05:31 +0000"
+    },
+    {
+      "height" : 498.99264235826007,
+      "x" : 0,
+      "y" : 44.830769051156068,
+      "eventType" : "viewFrameChange",
+      "width" : 373.99264235826007,
+      "viewClass" : "TGCameraPreviewView",
+      "timestamp" : "2025-04-13 02:05:31 +0000"
+    },
+    {
+      "height" : 499.37303743465213,
+      "x" : 0,
+      "y" : 44.51705677700005,
+      "eventType" : "viewFrameChange",
+      "width" : 374.37303743465213,
+      "viewClass" : "TGCameraPreviewView",
+      "timestamp" : "2025-04-13 02:05:31 +0000"
+    },
+    {
+      "height" : 499.62923573572414,
+      "x" : 0,
+      "y" : 44.305769731892873,
+      "eventType" : "viewFrameChange",
+      "width" : 374.62923573572414,
+      "viewClass" : "TGCameraPreviewView",
+      "timestamp" : "2025-04-13 02:05:31 +0000"
+    },
+    {
+      "height" : 499.79035818594127,
+      "x" : 0,
+      "y" : 44.172891854622151,
+      "eventType" : "viewFrameChange",
+      "width" : 374.79035818594127,
+      "viewClass" : "TGCameraPreviewView",
+      "timestamp" : "2025-04-13 02:05:31 +0000"
+    },
+    {
+      "height" : 499.89438968142684,
+      "x" : 0,
+      "y" : 44.087096955954756,
+      "eventType" : "viewFrameChange",
+      "width" : 374.89438968142684,
+      "viewClass" : "TGCameraPreviewView",
+      "timestamp" : "2025-04-13 02:05:31 +0000"
+    },
+    {
+      "height" : 500,
+      "x" : 0,
+      "y" : 44,
+      "eventType" : "viewFrameChange",
+      "width" : 375,
+      "viewClass" : "TGCameraPreviewView",
+      "timestamp" : "2025-04-13 02:05:31 +0000"
+    },
+    {
+      "timestamp" : "2025-04-13 02:05:32 +0000",
+      "eventType" : "orientation",
+      "orientationString" : "Unknown",
+      "orientation" : 1
+    },
+    {
+      "height" : 667,
+      "x" : 0,
+      "y" : 0,
+      "eventType" : "viewFrameChange",
+      "width" : 375,
+      "viewClass" : "TGCameraPreviewView",
+      "timestamp" : "2025-04-13 02:05:34 +0000"
+    },
+    {
+      "timestamp" : "2025-04-13 02:05:36 +0000",
+      "eventType" : "orientation",
+      "orientationString" : "Unknown",
+      "orientation" : 1
+    },
+    {
+      "height" : 667,
+      "x" : 0,
+      "y" : 0,
+      "eventType" : "viewFrameChange",
+      "width" : 375,
+      "viewClass" : "TGCameraPreviewView",
+      "timestamp" : "2025-04-13 02:05:37 +0000"
+    },
+    {
+      "height" : 640.98320118988033,
+      "x" : 0,
+      "y" : 15.622527515167576,
+      "eventType" : "viewFrameChange",
+      "width" : 359.37747248483242,
+      "viewClass" : "TGCameraPreviewView",
+      "timestamp" : "2025-04-13 02:05:37 +0000"
+    },
+    {
+      "height" : 636.59871812195001,
+      "x" : 0,
+      "y" : 18.255315194714228,
+      "eventType" : "viewFrameChange",
+      "width" : 356.74468480528577,
+      "viewClass" : "TGCameraPreviewView",
+      "timestamp" : "2025-04-13 02:05:37 +0000"
+    },
+    {
+      "height" : 541.69340483791188,
+      "x" : 0,
+      "y" : 75.243912405943064,
+      "eventType" : "viewFrameChange",
+      "width" : 299.75608759405691,
+      "viewClass" : "TGCameraPreviewView",
+      "timestamp" : "2025-04-13 02:05:37 +0000"
+    },
+    {
+      "height" : 522.68995573362872,
+      "x" : 0,
+      "y" : 86.655074427893084,
+      "eventType" : "viewFrameChange",
+      "width" : 288.34492557210689,
+      "viewClass" : "TGCameraPreviewView",
+      "timestamp" : "2025-04-13 02:05:37 +0000"
+    },
+    {
+      "height" : 460.04050309653394,
+      "x" : 0,
+      "y" : 124.27472182480876,
+      "eventType" : "viewFrameChange",
+      "width" : 250.72527817519119,
+      "viewClass" : "TGCameraPreviewView",
+      "timestamp" : "2025-04-13 02:05:37 +0000"
+    },
+    {
+      "height" : 406.92791832059777,
+      "x" : 0,
+      "y" : 156.1676854103589,
+      "eventType" : "viewFrameChange",
+      "width" : 218.83231458964104,
+      "viewClass" : "TGCameraPreviewView",
+      "timestamp" : "2025-04-13 02:05:37 +0000"
+    },
+    {
+      "height" : 382.70652422694241,
+      "x" : 0,
+      "y" : 170.71211105032899,
+      "eventType" : "viewFrameChange",
+      "width" : 204.28788894967096,
+      "viewClass" : "TGCameraPreviewView",
+      "timestamp" : "2025-04-13 02:05:37 +0000"
+    },
+    {
+      "height" : 348.41315912096485,
+      "x" : 0,
+      "y" : 191.30453842257862,
+      "eventType" : "viewFrameChange",
+      "width" : 183.69546157742136,
+      "viewClass" : "TGCameraPreviewView",
+      "timestamp" : "2025-04-13 02:05:37 +0000"
+    },
+    {
+      "height" : 322.2254259226645,
+      "x" : 0,
+      "y" : 207.02970835744316,
+      "eventType" : "viewFrameChange",
+      "width" : 167.97029164255684,
+      "viewClass" : "TGCameraPreviewView",
+      "timestamp" : "2025-04-13 02:05:37 +0000"
+    },
+    {
+      "height" : 302.50206971015285,
+      "x" : 0,
+      "y" : 218.87315909749199,
+      "eventType" : "viewFrameChange",
+      "width" : 156.12684090250801,
+      "viewClass" : "TGCameraPreviewView",
+      "timestamp" : "2025-04-13 02:05:37 +0000"
+    },
+    {
+      "height" : 287.05608546040088,
+      "x" : 0,
+      "y" : 228.14814007042918,
+      "eventType" : "viewFrameChange",
+      "width" : 146.85185992957085,
+      "viewClass" : "TGCameraPreviewView",
+      "timestamp" : "2025-04-13 02:05:38 +0000"
+    },
+    {
+      "height" : 273.77160999857222,
+      "x" : 0,
+      "y" : 236.12518155588134,
+      "eventType" : "viewFrameChange",
+      "width" : 138.87481844411869,
+      "viewClass" : "TGCameraPreviewView",
+      "timestamp" : "2025-04-13 02:05:38 +0000"
+    },
+    {
+      "height" : 267.9181577665637,
+      "x" : 0,
+      "y" : 239.6400535899343,
+      "eventType" : "viewFrameChange",
+      "width" : 135.35994641006573,
+      "viewClass" : "TGCameraPreviewView",
+      "timestamp" : "2025-04-13 02:05:38 +0000"
+    },
+    {
+      "height" : 261.55007249156489,
+      "x" : 0,
+      "y" : 243.46395168568714,
+      "eventType" : "viewFrameChange",
+      "width" : 131.53604831431286,
+      "viewClass" : "TGCameraPreviewView",
+      "timestamp" : "2025-04-13 02:05:38 +0000"
+    },
+    {
+      "height" : 256.95956954352738,
+      "x" : 0,
+      "y" : 246.22044986740346,
+      "eventType" : "viewFrameChange",
+      "width" : 128.77955013259654,
+      "viewClass" : "TGCameraPreviewView",
+      "timestamp" : "2025-04-13 02:05:38 +0000"
+    },
+    {
+      "height" : 254.90805152166268,
+      "x" : 0,
+      "y" : 247.45234226809254,
+      "eventType" : "viewFrameChange",
+      "width" : 127.54765773190746,
+      "viewClass" : "TGCameraPreviewView",
+      "timestamp" : "2025-04-13 02:05:38 +0000"
+    },
+    {
+      "height" : 252.84257824698898,
+      "x" : 0,
+      "y" : 248.69261449762149,
+      "eventType" : "viewFrameChange",
+      "width" : 126.30738550237852,
+      "viewClass" : "TGCameraPreviewView",
+      "timestamp" : "2025-04-13 02:05:38 +0000"
+    },
+    {
+      "height" : 251.23288570441568,
+      "x" : 0,
+      "y" : 249.65920021098486,
+      "eventType" : "viewFrameChange",
+      "width" : 125.34079978901514,
+      "viewClass" : "TGCameraPreviewView",
+      "timestamp" : "2025-04-13 02:05:38 +0000"
+    },
+    {
+      "height" : 250.12660587979653,
+      "x" : 0,
+      "y" : 250.3234974262466,
+      "eventType" : "viewFrameChange",
+      "width" : 124.6765025737534,
+      "viewClass" : "TGCameraPreviewView",
+      "timestamp" : "2025-04-13 02:05:38 +0000"
+    },
+    {
+      "height" : 249.94521331988031,
+      "x" : 0,
+      "y" : 250.43241975289484,
+      "eventType" : "viewFrameChange",
+      "width" : 124.56758024710516,
+      "viewClass" : "TGCameraPreviewView",
+      "timestamp" : "2025-04-13 02:05:38 +0000"
+    },
+    {
+      "height" : 249.5496587136295,
+      "x" : 0,
+      "y" : 250.66994177722248,
+      "eventType" : "viewFrameChange",
+      "width" : 124.33005822277751,
+      "viewClass" : "TGCameraPreviewView",
+      "timestamp" : "2025-04-13 02:05:38 +0000"
+    },
+    {
+      "height" : 249.30490142966858,
+      "x" : 0,
+      "y" : 250.81691325634733,
+      "eventType" : "viewFrameChange",
+      "width" : 124.18308674365265,
+      "viewClass" : "TGCameraPreviewView",
+      "timestamp" : "2025-04-13 02:05:38 +0000"
+    },
+    {
+      "height" : 249.14772607495661,
+      "x" : 0,
+      "y" : 250.91129367269352,
+      "eventType" : "viewFrameChange",
+      "width" : 124.08870632730647,
+      "viewClass" : "TGCameraPreviewView",
+      "timestamp" : "2025-04-13 02:05:38 +0000"
+    },
+    {
+      "height" : 249,
+      "x" : 0,
+      "y" : 251,
+      "eventType" : "viewFrameChange",
+      "width" : 124,
+      "viewClass" : "TGCameraPreviewView",
+      "timestamp" : "2025-04-13 02:05:38 +0000"
+    },
+    {
+      "height" : 249,
+      "x" : 0,
+      "y" : 0,
+      "eventType" : "viewFrameChange",
+      "width" : 124,
+      "viewClass" : "TGCameraPreviewView",
+      "timestamp" : "2025-04-13 02:05:38 +0000"
+    },
+    {
+      "timestamp" : "2025-04-13 02:05:39 +0000",
+      "sampledFrames" : 60,
+      "totalFrames" : 326,
+      "averageFPS" : 29.272548924500235,
+      "eventType" : "fpsStats"
+    },
+    {
+      "timestamp" : "2025-04-13 02:05:39 +0000",
+      "eventType" : "sessionStop",
+      "reason" : "stopRunning chamado"
+    }
+  ],
+  "appName" : "Telegram",
+  "timestamp" : "2025-04-13 02:05:29 +0000",
+  "deviceModel" : "iPhone",
+  "bundleId" : "ph.telegra.Telegraph",
+  "iosVersion" : "15.8.3"
+}

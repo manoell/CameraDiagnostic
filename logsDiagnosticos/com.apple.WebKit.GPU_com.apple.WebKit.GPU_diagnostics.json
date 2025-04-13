@@ -1,0 +1,309 @@
+{
+  "events" : [
+    {
+      "timestamp" : "2025-04-13 02:05:49 +0000",
+      "eventType" : "videoSettings",
+      "pixelFormat" : 875704422,
+      "pixelFormatString" : "420f"
+    },
+    {
+      "height" : 480,
+      "sessionPreset" : "AVCaptureSessionPresetInputPriority",
+      "uniqueID" : "com.apple.avfoundation.avcapturedevice.built-in_video:1",
+      "deviceName" : "Front Camera",
+      "width" : 640,
+      "isFrontCamera" : true,
+      "formatSubTypeString" : "420v",
+      "formatSubType" : 875704438,
+      "supportedFrameRates" : [
+        {
+          "defaultFrameRate" : 2,
+          "maxFrameRate" : 30,
+          "minFrameRate" : 2
+        }
+      ],
+      "eventType" : "sessionStart",
+      "timestamp" : "2025-04-13 02:05:49 +0000"
+    },
+    {
+      "timestamp" : "2025-04-13 02:05:50 +0000",
+      "eventType" : "sessionStop",
+      "reason" : "stopRunning chamado"
+    },
+    {
+      "timestamp" : "2025-04-13 02:05:50 +0000",
+      "eventType" : "videoSettings",
+      "pixelFormat" : 875704422,
+      "pixelFormatString" : "420f"
+    },
+    {
+      "height" : 480,
+      "sessionPreset" : "AVCaptureSessionPresetInputPriority",
+      "uniqueID" : "com.apple.avfoundation.avcapturedevice.built-in_video:1",
+      "deviceName" : "Front Camera",
+      "width" : 640,
+      "isFrontCamera" : true,
+      "formatSubTypeString" : "420v",
+      "formatSubType" : 875704438,
+      "supportedFrameRates" : [
+        {
+          "defaultFrameRate" : 2,
+          "maxFrameRate" : 30,
+          "minFrameRate" : 2
+        }
+      ],
+      "eventType" : "sessionStart",
+      "timestamp" : "2025-04-13 02:05:50 +0000"
+    },
+    {
+      "timestamp" : "2025-04-13 02:05:51 +0000",
+      "eventType" : "sessionStop",
+      "reason" : "stopRunning chamado"
+    },
+    {
+      "timestamp" : "2025-04-13 02:05:51 +0000",
+      "eventType" : "videoSettings",
+      "pixelFormat" : 875704422,
+      "pixelFormatString" : "420f"
+    },
+    {
+      "height" : 480,
+      "sessionPreset" : "AVCaptureSessionPresetInputPriority",
+      "uniqueID" : "com.apple.avfoundation.avcapturedevice.built-in_video:1",
+      "deviceName" : "Front Camera",
+      "width" : 640,
+      "isFrontCamera" : true,
+      "formatSubTypeString" : "420v",
+      "formatSubType" : 875704438,
+      "supportedFrameRates" : [
+        {
+          "defaultFrameRate" : 2,
+          "maxFrameRate" : 30,
+          "minFrameRate" : 2
+        }
+      ],
+      "eventType" : "sessionStart",
+      "timestamp" : "2025-04-13 02:05:51 +0000"
+    },
+    {
+      "timestamp" : "2025-04-13 02:05:51 +0000",
+      "sampledFrames" : 6,
+      "totalFrames" : 7,
+      "averageFPS" : 4.4865656139405052,
+      "eventType" : "fpsStats"
+    },
+    {
+      "timestamp" : "2025-04-13 02:05:51 +0000",
+      "eventType" : "sessionStop",
+      "reason" : "stopRunning chamado"
+    },
+    {
+      "timestamp" : "2025-04-13 02:05:51 +0000",
+      "eventType" : "videoSettings",
+      "pixelFormat" : 875704422,
+      "pixelFormatString" : "420f"
+    },
+    {
+      "height" : 1080,
+      "sessionPreset" : "AVCaptureSessionPresetInputPriority",
+      "uniqueID" : "com.apple.avfoundation.avcapturedevice.built-in_video:1",
+      "deviceName" : "Front Camera",
+      "width" : 1440,
+      "isFrontCamera" : true,
+      "formatSubTypeString" : "420v",
+      "formatSubType" : 875704438,
+      "supportedFrameRates" : [
+        {
+          "defaultFrameRate" : 2,
+          "maxFrameRate" : 60,
+          "minFrameRate" : 2
+        }
+      ],
+      "eventType" : "sessionStart",
+      "timestamp" : "2025-04-13 02:05:51 +0000"
+    },
+    {
+      "timestamp" : "2025-04-13 02:05:51 +0000",
+      "sampledFrames" : 12,
+      "totalFrames" : 20,
+      "averageFPS" : 27.813118321519728,
+      "eventType" : "fpsStats"
+    },
+    {
+      "timestamp" : "2025-04-13 02:05:51 +0000",
+      "eventType" : "sessionStop",
+      "reason" : "stopRunning chamado"
+    },
+    {
+      "timestamp" : "2025-04-13 02:05:52 +0000",
+      "eventType" : "videoSettings",
+      "pixelFormat" : 875704422,
+      "pixelFormatString" : "420f"
+    },
+    {
+      "height" : 480,
+      "sessionPreset" : "AVCaptureSessionPresetInputPriority",
+      "uniqueID" : "com.apple.avfoundation.avcapturedevice.built-in_video:1",
+      "deviceName" : "Front Camera",
+      "width" : 640,
+      "isFrontCamera" : true,
+      "formatSubTypeString" : "420v",
+      "formatSubType" : 875704438,
+      "supportedFrameRates" : [
+        {
+          "defaultFrameRate" : 2,
+          "maxFrameRate" : 30,
+          "minFrameRate" : 2
+        }
+      ],
+      "eventType" : "sessionStart",
+      "timestamp" : "2025-04-13 02:05:52 +0000"
+    },
+    {
+      "timestamp" : "2025-04-13 02:05:52 +0000",
+      "eventType" : "sessionStop",
+      "reason" : "stopRunning chamado"
+    },
+    {
+      "timestamp" : "2025-04-13 02:05:53 +0000",
+      "eventType" : "videoSettings",
+      "pixelFormat" : 875704422,
+      "pixelFormatString" : "420f"
+    },
+    {
+      "height" : 480,
+      "sessionPreset" : "AVCaptureSessionPresetInputPriority",
+      "uniqueID" : "com.apple.avfoundation.avcapturedevice.built-in_video:1",
+      "deviceName" : "Front Camera",
+      "width" : 640,
+      "isFrontCamera" : true,
+      "formatSubTypeString" : "420v",
+      "formatSubType" : 875704438,
+      "supportedFrameRates" : [
+        {
+          "defaultFrameRate" : 2,
+          "maxFrameRate" : 30,
+          "minFrameRate" : 2
+        }
+      ],
+      "eventType" : "sessionStart",
+      "timestamp" : "2025-04-13 02:05:53 +0000"
+    },
+    {
+      "timestamp" : "2025-04-13 02:05:53 +0000",
+      "sampledFrames" : 7,
+      "totalFrames" : 28,
+      "averageFPS" : 3.6153064710009599,
+      "eventType" : "fpsStats"
+    },
+    {
+      "timestamp" : "2025-04-13 02:05:53 +0000",
+      "eventType" : "sessionStop",
+      "reason" : "stopRunning chamado"
+    },
+    {
+      "timestamp" : "2025-04-13 02:05:53 +0000",
+      "eventType" : "videoSettings",
+      "pixelFormat" : 875704422,
+      "pixelFormatString" : "420f"
+    },
+    {
+      "height" : 480,
+      "sessionPreset" : "AVCaptureSessionPresetInputPriority",
+      "uniqueID" : "com.apple.avfoundation.avcapturedevice.built-in_video:0",
+      "deviceName" : "Back Camera",
+      "width" : 640,
+      "isFrontCamera" : false,
+      "formatSubTypeString" : "420v",
+      "formatSubType" : 875704438,
+      "supportedFrameRates" : [
+        {
+          "defaultFrameRate" : 3,
+          "maxFrameRate" : 30,
+          "minFrameRate" : 3
+        }
+      ],
+      "eventType" : "sessionStart",
+      "timestamp" : "2025-04-13 02:05:53 +0000"
+    },
+    {
+      "timestamp" : "2025-04-13 02:05:54 +0000",
+      "sampledFrames" : 16,
+      "totalFrames" : 45,
+      "averageFPS" : 29.620960925358418,
+      "eventType" : "fpsStats"
+    },
+    {
+      "timestamp" : "2025-04-13 02:05:54 +0000",
+      "eventType" : "sessionStop",
+      "reason" : "stopRunning chamado"
+    },
+    {
+      "timestamp" : "2025-04-13 02:05:54 +0000",
+      "eventType" : "videoSettings",
+      "pixelFormat" : 875704422,
+      "pixelFormatString" : "420f"
+    },
+    {
+      "height" : 480,
+      "sessionPreset" : "AVCaptureSessionPresetInputPriority",
+      "uniqueID" : "com.apple.avfoundation.avcapturedevice.built-in_video:1",
+      "deviceName" : "Front Camera",
+      "width" : 640,
+      "isFrontCamera" : true,
+      "formatSubTypeString" : "420v",
+      "formatSubType" : 875704438,
+      "supportedFrameRates" : [
+        {
+          "defaultFrameRate" : 2,
+          "maxFrameRate" : 30,
+          "minFrameRate" : 2
+        }
+      ],
+      "eventType" : "sessionStart",
+      "timestamp" : "2025-04-13 02:05:54 +0000"
+    },
+    {
+      "timestamp" : "2025-04-13 02:05:55 +0000",
+      "sampledFrames" : 13,
+      "totalFrames" : 59,
+      "averageFPS" : 29.740119798365235,
+      "eventType" : "fpsStats"
+    },
+    {
+      "timestamp" : "2025-04-13 02:05:55 +0000",
+      "eventType" : "sessionStop",
+      "reason" : "stopRunning chamado"
+    },
+    {
+      "timestamp" : "2025-04-13 02:05:56 +0000",
+      "eventType" : "videoSettings",
+      "pixelFormat" : 875704422,
+      "pixelFormatString" : "420f"
+    },
+    {
+      "height" : 1080,
+      "sessionPreset" : "AVCaptureSessionPresetInputPriority",
+      "uniqueID" : "com.apple.avfoundation.avcapturedevice.built-in_video:1",
+      "deviceName" : "Front Camera",
+      "width" : 1440,
+      "isFrontCamera" : true,
+      "formatSubTypeString" : "420v",
+      "formatSubType" : 875704438,
+      "supportedFrameRates" : [
+        {
+          "defaultFrameRate" : 2,
+          "maxFrameRate" : 60,
+          "minFrameRate" : 2
+        }
+      ],
+      "eventType" : "sessionStart",
+      "timestamp" : "2025-04-13 02:05:56 +0000"
+    }
+  ],
+  "appName" : "com.apple.WebKit.GPU",
+  "timestamp" : "2025-04-13 02:05:49 +0000",
+  "deviceModel" : "iPhone",
+  "bundleId" : "com.apple.WebKit.GPU",
+  "iosVersion" : "15.8.3"
+}

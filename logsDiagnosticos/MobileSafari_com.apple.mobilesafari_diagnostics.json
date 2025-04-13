@@ -1,0 +1,29 @@
+{
+  "events" : [
+    {
+      "devicePosition" : 1,
+      "activeFormat" : {
+        "pixelFormat" : 875704438,
+        "pixelFormatString" : "420v",
+        "width" : 1920,
+        "height" : 1080,
+        "supportedFrameRates" : [
+          {
+            "defaultFrameRate" : 3,
+            "maxFrameRate" : 30,
+            "minFrameRate" : 3
+          }
+        ]
+      },
+      "timestamp" : "2025-04-13 02:05:48 +0000",
+      "eventType" : "cameraRequest",
+      "uniqueID" : "com.apple.avfoundation.avcapturedevice.built-in_video:0",
+      "deviceName" : "Câmera Traseira"
+    }
+  ],
+  "appName" : "MobileSafari",
+  "timestamp" : "2025-04-13 02:05:48 +0000",
+  "deviceModel" : "iPhone",
+  "bundleId" : "com.apple.mobilesafari",
+  "iosVersion" : "15.8.3"
+}

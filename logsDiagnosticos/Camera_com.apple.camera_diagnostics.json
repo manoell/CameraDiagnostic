@@ -1,0 +1,139 @@
+{
+  "events" : [
+    {
+      "timestamp" : "2025-04-13 02:04:03 +0000",
+      "eventType" : "orientation",
+      "orientationString" : "Unknown",
+      "orientation" : 1
+    },
+    {
+      "timestamp" : "2025-04-13 02:04:03 +0000",
+      "eventType" : "mirroring",
+      "videoMirrored" : false
+    },
+    {
+      "height" : 500,
+      "x" : 0,
+      "y" : 0,
+      "eventType" : "viewFrameChange",
+      "width" : 375,
+      "viewClass" : "CAMVideoPreviewView",
+      "timestamp" : "2025-04-13 02:04:03 +0000"
+    },
+    {
+      "height" : 500,
+      "x" : 0,
+      "y" : 0,
+      "eventType" : "viewFrameChange",
+      "width" : 375,
+      "viewClass" : "CAMVideoPreviewView",
+      "timestamp" : "2025-04-13 02:04:03 +0000"
+    },
+    {
+      "height" : 3024,
+      "sessionPreset" : "AVCaptureSessionPresetPhoto",
+      "uniqueID" : "com.apple.avfoundation.avcapturedevice.built-in_video:0",
+      "deviceName" : "Câmera Traseira",
+      "width" : 4032,
+      "isFrontCamera" : false,
+      "formatSubTypeString" : "420f",
+      "formatSubType" : 875704422,
+      "supportedFrameRates" : [
+        {
+          "defaultFrameRate" : 3,
+          "maxFrameRate" : 30,
+          "minFrameRate" : 3
+        }
+      ],
+      "eventType" : "sessionStart",
+      "timestamp" : "2025-04-13 02:04:03 +0000"
+    },
+    {
+      "height" : 500,
+      "x" : 0,
+      "y" : 0,
+      "eventType" : "viewFrameChange",
+      "width" : 375,
+      "viewClass" : "CAMVideoPreviewView",
+      "timestamp" : "2025-04-13 02:04:06 +0000"
+    },
+    {
+      "timestamp" : "2025-04-13 02:04:08 +0000",
+      "eventType" : "orientation",
+      "orientationString" : "Unknown",
+      "orientation" : 1
+    },
+    {
+      "timestamp" : "2025-04-13 02:04:08 +0000",
+      "eventType" : "mirroring",
+      "videoMirrored" : false
+    },
+    {
+      "height" : 500,
+      "x" : 0,
+      "y" : 0,
+      "eventType" : "viewFrameChange",
+      "width" : 375,
+      "viewClass" : "CAMVideoPreviewView",
+      "timestamp" : "2025-04-13 02:04:09 +0000"
+    },
+    {
+      "height" : 667,
+      "x" : 0,
+      "y" : 0,
+      "eventType" : "viewFrameChange",
+      "width" : 375,
+      "viewClass" : "CAMVideoPreviewView",
+      "timestamp" : "2025-04-13 02:04:16 +0000"
+    },
+    {
+      "timestamp" : "2025-04-13 02:04:16 +0000",
+      "eventType" : "mirroring",
+      "videoMirrored" : false
+    },
+    {
+      "timestamp" : "2025-04-13 02:04:16 +0000",
+      "eventType" : "mirroring",
+      "videoMirrored" : false
+    },
+    {
+      "height" : 667,
+      "x" : 0,
+      "y" : 0,
+      "eventType" : "viewFrameChange",
+      "width" : 375,
+      "viewClass" : "CAMVideoPreviewView",
+      "timestamp" : "2025-04-13 02:04:16 +0000"
+    },
+    {
+      "height" : 667,
+      "x" : 0,
+      "y" : 0,
+      "eventType" : "viewFrameChange",
+      "width" : 375,
+      "viewClass" : "CAMVideoPreviewView",
+      "timestamp" : "2025-04-13 02:04:19 +0000"
+    },
+    {
+      "timestamp" : "2025-04-13 02:04:21 +0000",
+      "eventType" : "orientation",
+      "orientationString" : "Unknown",
+      "orientation" : 1
+    },
+    {
+      "timestamp" : "2025-04-13 02:04:21 +0000",
+      "eventType" : "mirroring",
+      "videoMirrored" : false
+    },
+    {
+      "timestamp" : "2025-04-13 02:04:21 +0000",
+      "eventType" : "mirroring",
+      "videoMirrored" : false
+    }
+  ],
+  "appName" : "Camera",
+  "timestamp" : "2025-04-13 02:04:03 +0000",
+  "deviceModel" : "iPhone",
+  "bundleId" : "com.apple.camera",
+  "iosVersion" : "15.8.3"
+}

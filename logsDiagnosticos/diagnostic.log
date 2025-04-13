@@ -1,0 +1,251 @@
+[2025-04-12 23:04:03] [Camera (com.apple.camera)] Ativando diagnóstico para: Camera (com.apple.camera)
+[2025-04-12 23:04:03] [Camera (com.apple.camera)] Orientação do vídeo alterada para: Unknown
+[2025-04-12 23:04:03] [Camera (com.apple.camera)] Evento registrado: orientation
+[2025-04-12 23:04:03] [Camera (com.apple.camera)] Espelhamento de vídeo: NÃO
+[2025-04-12 23:04:03] [Camera (com.apple.camera)] Evento registrado: mirroring
+[2025-04-12 23:04:03] [Camera (com.apple.camera)] View da câmera alterada: {{0.0, 0.0}, {375.0, 500.0}}
+[2025-04-12 23:04:03] [Camera (com.apple.camera)] View da câmera alterada: {{0.0, 0.0}, {375.0, 500.0}}
+[2025-04-12 23:04:03] [Camera (com.apple.camera)] AVCaptureSession startRunning chamado
+[2025-04-12 23:04:03] [Camera (com.apple.camera)] Resolução da câmera: 4032x3024
+[2025-04-12 23:04:03] [Camera (com.apple.camera)] Evento registrado: sessionStart
+[2025-04-12 23:04:06] [Camera (com.apple.camera)] View da câmera alterada: {{0.0, 0.0}, {375.0, 500.0}}
+[2025-04-12 23:04:08] [Camera (com.apple.camera)] Orientação do vídeo alterada para: Unknown
+[2025-04-12 23:04:08] [Camera (com.apple.camera)] Evento registrado: orientation
+[2025-04-12 23:04:08] [Camera (com.apple.camera)] Espelhamento de vídeo: NÃO
+[2025-04-12 23:04:08] [Camera (com.apple.camera)] Evento registrado: mirroring
+[2025-04-12 23:04:09] [Camera (com.apple.camera)] View da câmera alterada: {{0.0, 0.0}, {375.0, 500.0}}
+[2025-04-12 23:04:16] [Camera (com.apple.camera)] View da câmera alterada: {{0.0, 0.0}, {375.0, 667.0}}
+[2025-04-12 23:04:16] [Camera (com.apple.camera)] Espelhamento de vídeo: NÃO
+[2025-04-12 23:04:16] [Camera (com.apple.camera)] Evento registrado: mirroring
+[2025-04-12 23:04:16] [Camera (com.apple.camera)] Espelhamento de vídeo: NÃO
+[2025-04-12 23:04:16] [Camera (com.apple.camera)] Evento registrado: mirroring
+[2025-04-12 23:04:16] [Camera (com.apple.camera)] View da câmera alterada: {{0.0, 0.0}, {375.0, 667.0}}
+[2025-04-12 23:04:19] [Camera (com.apple.camera)] View da câmera alterada: {{0.0, 0.0}, {375.0, 667.0}}
+[2025-04-12 23:04:21] [Camera (com.apple.camera)] Orientação do vídeo alterada para: Unknown
+[2025-04-12 23:04:21] [Camera (com.apple.camera)] Evento registrado: orientation
+[2025-04-12 23:04:21] [Camera (com.apple.camera)] Espelhamento de vídeo: NÃO
+[2025-04-12 23:04:21] [Camera (com.apple.camera)] Evento registrado: mirroring
+[2025-04-12 23:04:21] [Camera (com.apple.camera)] Espelhamento de vídeo: NÃO
+[2025-04-12 23:04:21] [Camera (com.apple.camera)] Evento registrado: mirroring
+[2025-04-12 23:04:25] [Camera (com.apple.camera)] AVCaptureVideoDataOutput setVideoSettings: chamado
+[2025-04-12 23:04:25] [Camera (com.apple.camera)] Formato de pixel: 420f
+[2025-04-12 23:04:25] [Camera (com.apple.camera)] AVCaptureVideoDataOutput setSampleBufferDelegate: chamado
+[2025-04-12 23:04:25] [Camera (com.apple.camera)] View da câmera alterada: {{0.0, 0.0}, {375.0, 667.0}}
+[2025-04-12 23:04:25] [Camera (com.apple.camera)] View da câmera alterada: {{0.0, 0.0}, {375.0, 667.0}}
+[2025-04-12 23:04:25] [Camera (com.apple.camera)] View da câmera alterada: {{0.0, 0.0}, {0.0, 0.0}}
+[2025-04-12 23:04:42] [Runner (com.nu.iphone)] Ativando diagnóstico para: Runner (com.nu.iphone)
+[2025-04-12 23:04:42] [Runner (com.nu.iphone)] AVCaptureVideoDataOutput setSampleBufferDelegate: chamado
+[2025-04-12 23:04:42] [Runner (com.nu.iphone)] Hooking delegate class: LyoQ_
+[2025-04-12 23:04:42] [Runner (com.nu.iphone)] AVCaptureVideoDataOutput setVideoSettings: chamado
+[2025-04-12 23:04:42] [Runner (com.nu.iphone)] Formato de pixel: BGRA
+[2025-04-12 23:04:42] [Runner (com.nu.iphone)] Orientação do vídeo alterada para: Unknown
+[2025-04-12 23:04:42] [Runner (com.nu.iphone)] Evento registrado: orientation
+[2025-04-12 23:04:42] [Runner (com.nu.iphone)] Orientação do vídeo alterada para: Unknown
+[2025-04-12 23:04:42] [Runner (com.nu.iphone)] Evento registrado: orientation
+[2025-04-12 23:04:42] [Runner (com.nu.iphone)] Orientação do vídeo alterada para: Unknown
+[2025-04-12 23:04:42] [Runner (com.nu.iphone)] Evento registrado: orientation
+[2025-04-12 23:04:42] [Runner (com.nu.iphone)] AVCaptureSession startRunning chamado
+[2025-04-12 23:04:42] [Runner (com.nu.iphone)] AVCaptureSession startRunning chamado
+[2025-04-12 23:04:42] [Runner (com.nu.iphone)] Resolução da câmera: 960x540
+[2025-04-12 23:04:42] [Runner (com.nu.iphone)] Evento registrado: sessionStart
+[2025-04-12 23:04:42] [Runner (com.nu.iphone)] Evento registrado: sessionStart
+[2025-04-12 23:04:48] [Runner (com.nu.iphone)] AVCaptureSession stopRunning chamado
+[2025-04-12 23:04:48] [Runner (com.nu.iphone)] Evento registrado: fpsStats
+[2025-04-12 23:04:49] [Runner (com.nu.iphone)] Evento registrado: sessionStop
+[2025-04-12 23:04:50] [Runner (com.nu.iphone)] AVCaptureSession startRunning chamado
+[2025-04-12 23:04:50] [Runner (com.nu.iphone)] Resolução da câmera: 960x540
+[2025-04-12 23:04:50] [Runner (com.nu.iphone)] Evento registrado: sessionStart
+[2025-04-12 23:04:54] [Runner (com.nu.iphone)] AVCaptureSession stopRunning chamado
+[2025-04-12 23:04:54] [Runner (com.nu.iphone)] Evento registrado: fpsStats
+[2025-04-12 23:04:54] [Runner (com.nu.iphone)] Evento registrado: sessionStop
+[2025-04-12 23:05:16] [Telegram (ph.telegra.Telegraph)] Ativando diagnóstico para: Telegram (ph.telegra.Telegraph)
+[2025-04-12 23:05:16] [Telegram (ph.telegra.Telegraph)] AVCaptureVideoDataOutput setVideoSettings: chamado
+[2025-04-12 23:05:16] [Telegram (ph.telegra.Telegraph)] Formato de pixel: 420v
+[2025-04-12 23:05:16] [Telegram (ph.telegra.Telegraph)] Orientação do vídeo alterada para: Unknown
+[2025-04-12 23:05:16] [Telegram (ph.telegra.Telegraph)] Evento registrado: orientation
+[2025-04-12 23:05:16] [Telegram (ph.telegra.Telegraph)] AVCaptureVideoDataOutput setSampleBufferDelegate: chamado
+[2025-04-12 23:05:16] [Telegram (ph.telegra.Telegraph)] Hooking delegate class: Camera.CameraOutput
+[2025-04-12 23:05:16] [Telegram (ph.telegra.Telegraph)] AVCaptureSession startRunning chamado
+[2025-04-12 23:05:16] [Telegram (ph.telegra.Telegraph)] Resolução da câmera: 1920x1080
+[2025-04-12 23:05:16] [Telegram (ph.telegra.Telegraph)] Evento registrado: sessionStart
+[2025-04-12 23:05:16] [Telegram (ph.telegra.Telegraph)] Orientação do vídeo alterada para: Unknown
+[2025-04-12 23:05:16] [Telegram (ph.telegra.Telegraph)] Evento registrado: orientation
+[2025-04-12 23:05:16] [Telegram (ph.telegra.Telegraph)] Orientação do vídeo alterada para: Unknown
+[2025-04-12 23:05:16] [Telegram (ph.telegra.Telegraph)] Evento registrado: orientation
+[2025-04-12 23:05:18] [Telegram (ph.telegra.Telegraph)] AVCaptureSession stopRunning chamado
+[2025-04-12 23:05:18] [Telegram (ph.telegra.Telegraph)] Evento registrado: fpsStats
+[2025-04-12 23:05:18] [Telegram (ph.telegra.Telegraph)] Evento registrado: sessionStop
+[2025-04-12 23:05:19] [Telegram (ph.telegra.Telegraph)] Orientação do vídeo alterada para: Unknown
+[2025-04-12 23:05:19] [Telegram (ph.telegra.Telegraph)] Evento registrado: orientation
+[2025-04-12 23:05:19] [Telegram (ph.telegra.Telegraph)] Orientação do vídeo alterada para: Unknown
+[2025-04-12 23:05:19] [Telegram (ph.telegra.Telegraph)] AVCaptureVideoDataOutput setSampleBufferDelegate: chamado
+[2025-04-12 23:05:19] [Telegram (ph.telegra.Telegraph)] AVCaptureSession startRunning chamado
+[2025-04-12 23:05:19] [Telegram (ph.telegra.Telegraph)] Resolução da câmera: 1920x1080
+[2025-04-12 23:05:19] [Telegram (ph.telegra.Telegraph)] Evento registrado: sessionStart
+[2025-04-12 23:05:19] [Telegram (ph.telegra.Telegraph)] Orientação do vídeo alterada para: Unknown
+[2025-04-12 23:05:19] [Telegram (ph.telegra.Telegraph)] Evento registrado: orientation
+[2025-04-12 23:05:19] [Telegram (ph.telegra.Telegraph)] Orientação do vídeo alterada para: Unknown
+[2025-04-12 23:05:19] [Telegram (ph.telegra.Telegraph)] Evento registrado: orientation
+[2025-04-12 23:05:29] [Telegram (ph.telegra.Telegraph)] Ativando diagnóstico para: Telegram (ph.telegra.Telegraph)
+[2025-04-12 23:05:29] [Telegram (ph.telegra.Telegraph)] Câmera solicitada: Câmera Traseira (posição: 1)
+[2025-04-12 23:05:29] [Telegram (ph.telegra.Telegraph)] Evento registrado: cameraRequest
+[2025-04-12 23:05:29] [Telegram (ph.telegra.Telegraph)] Orientação do vídeo alterada para: Unknown
+[2025-04-12 23:05:29] [Telegram (ph.telegra.Telegraph)] Evento registrado: orientation
+[2025-04-12 23:05:29] [Telegram (ph.telegra.Telegraph)] AVCaptureVideoDataOutput setVideoSettings: chamado
+[2025-04-12 23:05:29] [Telegram (ph.telegra.Telegraph)] Formato de pixel: 420v
+[2025-04-12 23:05:29] [Telegram (ph.telegra.Telegraph)] AVCaptureVideoDataOutput setSampleBufferDelegate: chamado
+[2025-04-12 23:05:29] [Telegram (ph.telegra.Telegraph)] Hooking delegate class: PGCameraCaptureSession
+[2025-04-12 23:05:29] [Telegram (ph.telegra.Telegraph)] AVCaptureSession startRunning chamado
+[2025-04-12 23:05:29] [Telegram (ph.telegra.Telegraph)] Resolução da câmera: 4032x3024
+[2025-04-12 23:05:29] [Telegram (ph.telegra.Telegraph)] Evento registrado: sessionStart
+[2025-04-12 23:05:29] [Telegram (ph.telegra.Telegraph)] View da câmera alterada: {{0.0, 0.0}, {124.0, 249.0}}
+[2025-04-12 23:05:30] [Telegram (ph.telegra.Telegraph)] View da câmera alterada: {{0.0, 251.0}, {124.0, 249.0}}
+[2025-04-12 23:05:30] [Telegram (ph.telegra.Telegraph)] View da câmera alterada: {{0.0, 251.0}, {124.0, 249.0}}
+[2025-04-12 23:05:30] [Telegram (ph.telegra.Telegraph)] View da câmera alterada: {{0.0, 230.0}, {149.5, 274.5}}
+[2025-04-12 23:05:31] [Telegram (ph.telegra.Telegraph)] View da câmera alterada: {{0.0, 186.0}, {202.8, 327.8}}
+[2025-04-12 23:05:31] [Telegram (ph.telegra.Telegraph)] View da câmera alterada: {{0.0, 157.3}, {237.6, 362.6}}
+[2025-04-12 23:05:31] [Telegram (ph.telegra.Telegraph)] View da câmera alterada: {{0.0, 132.6}, {267.6, 392.6}}
+[2025-04-12 23:05:31] [Telegram (ph.telegra.Telegraph)] View da câmera alterada: {{0.0, 112.2}, {292.3, 417.3}}
+[2025-04-12 23:05:31] [Telegram (ph.telegra.Telegraph)] View da câmera alterada: {{0.0, 95.1}, {313.1, 438.1}}
+[2025-04-12 23:05:31] [Telegram (ph.telegra.Telegraph)] View da câmera alterada: {{0.0, 81.8}, {329.2, 454.2}}
+[2025-04-12 23:05:31] [Telegram (ph.telegra.Telegraph)] View da câmera alterada: {{0.0, 71.4}, {341.8, 466.8}}
+[2025-04-12 23:05:31] [Telegram (ph.telegra.Telegraph)] View da câmera alterada: {{0.0, 64.0}, {350.8, 475.8}}
+[2025-04-12 23:05:31] [Telegram (ph.telegra.Telegraph)] View da câmera alterada: {{0.0, 58.2}, {357.8, 482.8}}
+[2025-04-12 23:05:31] [Telegram (ph.telegra.Telegraph)] View da câmera alterada: {{0.0, 54.0}, {362.9, 487.9}}
+[2025-04-12 23:05:31] [Telegram (ph.telegra.Telegraph)] View da câmera alterada: {{0.0, 50.8}, {366.7, 491.7}}
+[2025-04-12 23:05:31] [Telegram (ph.telegra.Telegraph)] View da câmera alterada: {{0.0, 48.7}, {369.3, 494.3}}
+[2025-04-12 23:05:31] [Telegram (ph.telegra.Telegraph)] View da câmera alterada: {{0.0, 47.2}, {371.2, 496.2}}
+[2025-04-12 23:05:31] [Telegram (ph.telegra.Telegraph)] View da câmera alterada: {{0.0, 46.1}, {372.5, 497.5}}
+[2025-04-12 23:05:31] [Telegram (ph.telegra.Telegraph)] View da câmera alterada: {{0.0, 45.3}, {373.4, 498.4}}
+[2025-04-12 23:05:31] [Telegram (ph.telegra.Telegraph)] View da câmera alterada: {{0.0, 44.8}, {374.0, 499.0}}
+[2025-04-12 23:05:31] [Telegram (ph.telegra.Telegraph)] View da câmera alterada: {{0.0, 44.5}, {374.4, 499.4}}
+[2025-04-12 23:05:31] [Telegram (ph.telegra.Telegraph)] View da câmera alterada: {{0.0, 44.3}, {374.6, 499.6}}
+[2025-04-12 23:05:31] [Telegram (ph.telegra.Telegraph)] View da câmera alterada: {{0.0, 44.2}, {374.8, 499.8}}
+[2025-04-12 23:05:31] [Telegram (ph.telegra.Telegraph)] View da câmera alterada: {{0.0, 44.1}, {374.9, 499.9}}
+[2025-04-12 23:05:31] [Telegram (ph.telegra.Telegraph)] View da câmera alterada: {{0.0, 44.0}, {375.0, 500.0}}
+[2025-04-12 23:05:32] [Telegram (ph.telegra.Telegraph)] Orientação do vídeo alterada para: Unknown
+[2025-04-12 23:05:32] [Telegram (ph.telegra.Telegraph)] Evento registrado: orientation
+[2025-04-12 23:05:34] [Telegram (ph.telegra.Telegraph)] View da câmera alterada: {{0.0, 0.0}, {375.0, 667.0}}
+[2025-04-12 23:05:36] [Telegram (ph.telegra.Telegraph)] Orientação do vídeo alterada para: Unknown
+[2025-04-12 23:05:36] [Telegram (ph.telegra.Telegraph)] Evento registrado: orientation
+[2025-04-12 23:05:37] [Telegram (ph.telegra.Telegraph)] View da câmera alterada: {{0.0, 0.0}, {375.0, 667.0}}
+[2025-04-12 23:05:37] [Telegram (ph.telegra.Telegraph)] View da câmera alterada: {{0.0, 15.6}, {359.4, 641.0}}
+[2025-04-12 23:05:37] [Telegram (ph.telegra.Telegraph)] View da câmera alterada: {{0.0, 18.3}, {356.7, 636.6}}
+[2025-04-12 23:05:37] [Telegram (ph.telegra.Telegraph)] View da câmera alterada: {{0.0, 75.2}, {299.8, 541.7}}
+[2025-04-12 23:05:37] [Telegram (ph.telegra.Telegraph)] View da câmera alterada: {{0.0, 86.7}, {288.3, 522.7}}
+[2025-04-12 23:05:37] [Telegram (ph.telegra.Telegraph)] View da câmera alterada: {{0.0, 124.3}, {250.7, 460.0}}
+[2025-04-12 23:05:37] [Telegram (ph.telegra.Telegraph)] View da câmera alterada: {{0.0, 156.2}, {218.8, 406.9}}
+[2025-04-12 23:05:37] [Telegram (ph.telegra.Telegraph)] View da câmera alterada: {{0.0, 170.7}, {204.3, 382.7}}
+[2025-04-12 23:05:37] [Telegram (ph.telegra.Telegraph)] View da câmera alterada: {{0.0, 191.3}, {183.7, 348.4}}
+[2025-04-12 23:05:37] [Telegram (ph.telegra.Telegraph)] View da câmera alterada: {{0.0, 207.0}, {168.0, 322.2}}
+[2025-04-12 23:05:37] [Telegram (ph.telegra.Telegraph)] View da câmera alterada: {{0.0, 218.9}, {156.1, 302.5}}
+[2025-04-12 23:05:38] [Telegram (ph.telegra.Telegraph)] View da câmera alterada: {{0.0, 228.1}, {146.9, 287.1}}
+[2025-04-12 23:05:38] [Telegram (ph.telegra.Telegraph)] View da câmera alterada: {{0.0, 236.1}, {138.9, 273.8}}
+[2025-04-12 23:05:38] [Telegram (ph.telegra.Telegraph)] View da câmera alterada: {{0.0, 239.6}, {135.4, 267.9}}
+[2025-04-12 23:05:38] [Telegram (ph.telegra.Telegraph)] View da câmera alterada: {{0.0, 243.5}, {131.5, 261.6}}
+[2025-04-12 23:05:38] [Telegram (ph.telegra.Telegraph)] View da câmera alterada: {{0.0, 246.2}, {128.8, 257.0}}
+[2025-04-12 23:05:38] [Telegram (ph.telegra.Telegraph)] View da câmera alterada: {{0.0, 247.5}, {127.5, 254.9}}
+[2025-04-12 23:05:38] [Telegram (ph.telegra.Telegraph)] View da câmera alterada: {{0.0, 248.7}, {126.3, 252.8}}
+[2025-04-12 23:05:38] [Telegram (ph.telegra.Telegraph)] View da câmera alterada: {{0.0, 249.7}, {125.3, 251.2}}
+[2025-04-12 23:05:38] [Telegram (ph.telegra.Telegraph)] View da câmera alterada: {{0.0, 250.3}, {124.7, 250.1}}
+[2025-04-12 23:05:38] [Telegram (ph.telegra.Telegraph)] View da câmera alterada: {{0.0, 250.4}, {124.6, 249.9}}
+[2025-04-12 23:05:38] [Telegram (ph.telegra.Telegraph)] View da câmera alterada: {{0.0, 250.7}, {124.3, 249.5}}
+[2025-04-12 23:05:38] [Telegram (ph.telegra.Telegraph)] View da câmera alterada: {{0.0, 250.8}, {124.2, 249.3}}
+[2025-04-12 23:05:38] [Telegram (ph.telegra.Telegraph)] View da câmera alterada: {{0.0, 250.9}, {124.1, 249.1}}
+[2025-04-12 23:05:38] [Telegram (ph.telegra.Telegraph)] View da câmera alterada: {{0.0, 251.0}, {124.0, 249.0}}
+[2025-04-12 23:05:38] [Telegram (ph.telegra.Telegraph)] View da câmera alterada: {{0.0, 0.0}, {124.0, 249.0}}
+[2025-04-12 23:05:39] [Telegram (ph.telegra.Telegraph)] AVCaptureSession stopRunning chamado
+[2025-04-12 23:05:39] [Telegram (ph.telegra.Telegraph)] Evento registrado: fpsStats
+[2025-04-12 23:05:39] [Telegram (ph.telegra.Telegraph)] Evento registrado: sessionStop
+[2025-04-12 23:05:39] [Telegram (ph.telegra.Telegraph)] AVCaptureVideoDataOutput setSampleBufferDelegate: chamado
+[2025-04-12 23:05:48] [MobileSafari (com.apple.mobilesafari)] Ativando diagnóstico para: MobileSafari (com.apple.mobilesafari)
+[2025-04-12 23:05:48] [MobileSafari (com.apple.mobilesafari)] Câmera solicitada: Câmera Traseira (posição: 1)
+[2025-04-12 23:05:48] [MobileSafari (com.apple.mobilesafari)] Evento registrado: cameraRequest
+[2025-04-12 23:05:49] [com.apple.WebKit.GPU (com.apple.WebKit.GPU)] Ativando diagnóstico para: com.apple.WebKit.GPU (com.apple.WebKit.GPU)
+[2025-04-12 23:05:49] [com.apple.WebKit.GPU (com.apple.WebKit.GPU)] AVCaptureVideoDataOutput setVideoSettings: chamado
+[2025-04-12 23:05:49] [com.apple.WebKit.GPU (com.apple.WebKit.GPU)] Formato de pixel: 420f
+[2025-04-12 23:05:49] [com.apple.WebKit.GPU (com.apple.WebKit.GPU)] AVCaptureVideoDataOutput setSampleBufferDelegate: chamado
+[2025-04-12 23:05:49] [com.apple.WebKit.GPU (com.apple.WebKit.GPU)] Hooking delegate class: WebCoreAVVideoCaptureSourceObserver
+[2025-04-12 23:05:49] [com.apple.WebKit.GPU (com.apple.WebKit.GPU)] AVCaptureSession startRunning chamado
+[2025-04-12 23:05:49] [com.apple.WebKit.GPU (com.apple.WebKit.GPU)] Resolução da câmera: 640x480
+[2025-04-12 23:05:49] [com.apple.WebKit.GPU (com.apple.WebKit.GPU)] Evento registrado: sessionStart
+[2025-04-12 23:05:50] [com.apple.WebKit.GPU (com.apple.WebKit.GPU)] AVCaptureSession stopRunning chamado
+[2025-04-12 23:05:50] [com.apple.WebKit.GPU (com.apple.WebKit.GPU)] Evento registrado: sessionStop
+[2025-04-12 23:05:50] [com.apple.WebKit.GPU (com.apple.WebKit.GPU)] AVCaptureVideoDataOutput setVideoSettings: chamado
+[2025-04-12 23:05:50] [com.apple.WebKit.GPU (com.apple.WebKit.GPU)] Formato de pixel: 420f
+[2025-04-12 23:05:50] [com.apple.WebKit.GPU (com.apple.WebKit.GPU)] AVCaptureVideoDataOutput setSampleBufferDelegate: chamado
+[2025-04-12 23:05:50] [com.apple.WebKit.GPU (com.apple.WebKit.GPU)] AVCaptureSession startRunning chamado
+[2025-04-12 23:05:50] [com.apple.WebKit.GPU (com.apple.WebKit.GPU)] Resolução da câmera: 640x480
+[2025-04-12 23:05:50] [com.apple.WebKit.GPU (com.apple.WebKit.GPU)] Evento registrado: sessionStart
+[2025-04-12 23:05:51] [com.apple.WebKit.GPU (com.apple.WebKit.GPU)] AVCaptureSession stopRunning chamado
+[2025-04-12 23:05:51] [com.apple.WebKit.GPU (com.apple.WebKit.GPU)] Evento registrado: sessionStop
+[2025-04-12 23:05:51] [com.apple.WebKit.GPU (com.apple.WebKit.GPU)] AVCaptureVideoDataOutput setVideoSettings: chamado
+[2025-04-12 23:05:51] [com.apple.WebKit.GPU (com.apple.WebKit.GPU)] Formato de pixel: 420f
+[2025-04-12 23:05:51] [com.apple.WebKit.GPU (com.apple.WebKit.GPU)] AVCaptureVideoDataOutput setSampleBufferDelegate: chamado
+[2025-04-12 23:05:51] [com.apple.WebKit.GPU (com.apple.WebKit.GPU)] AVCaptureSession startRunning chamado
+[2025-04-12 23:05:51] [com.apple.WebKit.GPU (com.apple.WebKit.GPU)] Resolução da câmera: 640x480
+[2025-04-12 23:05:51] [com.apple.WebKit.GPU (com.apple.WebKit.GPU)] Evento registrado: sessionStart
+[2025-04-12 23:05:51] [com.apple.WebKit.GPU (com.apple.WebKit.GPU)] AVCaptureSession stopRunning chamado
+[2025-04-12 23:05:51] [com.apple.WebKit.GPU (com.apple.WebKit.GPU)] Evento registrado: fpsStats
+[2025-04-12 23:05:51] [com.apple.WebKit.GPU (com.apple.WebKit.GPU)] Evento registrado: sessionStop
+[2025-04-12 23:05:51] [com.apple.WebKit.GPU (com.apple.WebKit.GPU)] AVCaptureVideoDataOutput setVideoSettings: chamado
+[2025-04-12 23:05:51] [com.apple.WebKit.GPU (com.apple.WebKit.GPU)] Formato de pixel: 420f
+[2025-04-12 23:05:51] [com.apple.WebKit.GPU (com.apple.WebKit.GPU)] AVCaptureVideoDataOutput setSampleBufferDelegate: chamado
+[2025-04-12 23:05:51] [com.apple.WebKit.GPU (com.apple.WebKit.GPU)] AVCaptureSession startRunning chamado
+[2025-04-12 23:05:51] [com.apple.WebKit.GPU (com.apple.WebKit.GPU)] Resolução da câmera: 1440x1080
+[2025-04-12 23:05:51] [com.apple.WebKit.GPU (com.apple.WebKit.GPU)] Evento registrado: sessionStart
+[2025-04-12 23:05:51] [com.apple.WebKit.GPU (com.apple.WebKit.GPU)] AVCaptureSession stopRunning chamado
+[2025-04-12 23:05:51] [com.apple.WebKit.GPU (com.apple.WebKit.GPU)] Evento registrado: fpsStats
+[2025-04-12 23:05:51] [com.apple.WebKit.GPU (com.apple.WebKit.GPU)] Evento registrado: sessionStop
+[2025-04-12 23:05:52] [com.apple.WebKit.GPU (com.apple.WebKit.GPU)] AVCaptureVideoDataOutput setVideoSettings: chamado
+[2025-04-12 23:05:52] [com.apple.WebKit.GPU (com.apple.WebKit.GPU)] Formato de pixel: 420f
+[2025-04-12 23:05:52] [com.apple.WebKit.GPU (com.apple.WebKit.GPU)] AVCaptureVideoDataOutput setSampleBufferDelegate: chamado
+[2025-04-12 23:05:52] [com.apple.WebKit.GPU (com.apple.WebKit.GPU)] AVCaptureSession startRunning chamado
+[2025-04-12 23:05:52] [com.apple.WebKit.GPU (com.apple.WebKit.GPU)] Resolução da câmera: 640x480
+[2025-04-12 23:05:52] [com.apple.WebKit.GPU (com.apple.WebKit.GPU)] Evento registrado: sessionStart
+[2025-04-12 23:05:52] [com.apple.WebKit.GPU (com.apple.WebKit.GPU)] AVCaptureSession stopRunning chamado
+[2025-04-12 23:05:52] [com.apple.WebKit.GPU (com.apple.WebKit.GPU)] Evento registrado: sessionStop
+[2025-04-12 23:05:53] [com.apple.WebKit.GPU (com.apple.WebKit.GPU)] AVCaptureVideoDataOutput setVideoSettings: chamado
+[2025-04-12 23:05:53] [com.apple.WebKit.GPU (com.apple.WebKit.GPU)] Formato de pixel: 420f
+[2025-04-12 23:05:53] [com.apple.WebKit.GPU (com.apple.WebKit.GPU)] AVCaptureVideoDataOutput setSampleBufferDelegate: chamado
+[2025-04-12 23:05:53] [com.apple.WebKit.GPU (com.apple.WebKit.GPU)] AVCaptureSession startRunning chamado
+[2025-04-12 23:05:53] [com.apple.WebKit.GPU (com.apple.WebKit.GPU)] Resolução da câmera: 640x480
+[2025-04-12 23:05:53] [com.apple.WebKit.GPU (com.apple.WebKit.GPU)] Evento registrado: sessionStart
+[2025-04-12 23:05:53] [com.apple.WebKit.GPU (com.apple.WebKit.GPU)] AVCaptureSession stopRunning chamado
+[2025-04-12 23:05:53] [com.apple.WebKit.GPU (com.apple.WebKit.GPU)] Evento registrado: fpsStats
+[2025-04-12 23:05:53] [com.apple.WebKit.GPU (com.apple.WebKit.GPU)] Evento registrado: sessionStop
+[2025-04-12 23:05:53] [com.apple.WebKit.GPU (com.apple.WebKit.GPU)] AVCaptureVideoDataOutput setVideoSettings: chamado
+[2025-04-12 23:05:53] [com.apple.WebKit.GPU (com.apple.WebKit.GPU)] Formato de pixel: 420f
+[2025-04-12 23:05:53] [com.apple.WebKit.GPU (com.apple.WebKit.GPU)] AVCaptureVideoDataOutput setSampleBufferDelegate: chamado
+[2025-04-12 23:05:53] [com.apple.WebKit.GPU (com.apple.WebKit.GPU)] AVCaptureSession startRunning chamado
+[2025-04-12 23:05:53] [com.apple.WebKit.GPU (com.apple.WebKit.GPU)] Resolução da câmera: 640x480
+[2025-04-12 23:05:53] [com.apple.WebKit.GPU (com.apple.WebKit.GPU)] Evento registrado: sessionStart
+[2025-04-12 23:05:54] [com.apple.WebKit.GPU (com.apple.WebKit.GPU)] AVCaptureSession stopRunning chamado
+[2025-04-12 23:05:54] [com.apple.WebKit.GPU (com.apple.WebKit.GPU)] Evento registrado: fpsStats
+[2025-04-12 23:05:54] [com.apple.WebKit.GPU (com.apple.WebKit.GPU)] Evento registrado: sessionStop
+[2025-04-12 23:05:54] [com.apple.WebKit.GPU (com.apple.WebKit.GPU)] AVCaptureVideoDataOutput setVideoSettings: chamado
+[2025-04-12 23:05:54] [com.apple.WebKit.GPU (com.apple.WebKit.GPU)] Formato de pixel: 420f
+[2025-04-12 23:05:54] [com.apple.WebKit.GPU (com.apple.WebKit.GPU)] AVCaptureVideoDataOutput setSampleBufferDelegate: chamado
+[2025-04-12 23:05:54] [com.apple.WebKit.GPU (com.apple.WebKit.GPU)] AVCaptureSession startRunning chamado
+[2025-04-12 23:05:54] [com.apple.WebKit.GPU (com.apple.WebKit.GPU)] Resolução da câmera: 640x480
+[2025-04-12 23:05:54] [com.apple.WebKit.GPU (com.apple.WebKit.GPU)] Evento registrado: sessionStart
+[2025-04-12 23:05:55] [com.apple.WebKit.GPU (com.apple.WebKit.GPU)] AVCaptureSession stopRunning chamado
+[2025-04-12 23:05:55] [com.apple.WebKit.GPU (com.apple.WebKit.GPU)] Evento registrado: fpsStats
+[2025-04-12 23:05:55] [com.apple.WebKit.GPU (com.apple.WebKit.GPU)] Evento registrado: sessionStop
+[2025-04-12 23:05:56] [com.apple.WebKit.GPU (com.apple.WebKit.GPU)] AVCaptureVideoDataOutput setVideoSettings: chamado
+[2025-04-12 23:05:56] [com.apple.WebKit.GPU (com.apple.WebKit.GPU)] Formato de pixel: 420f
+[2025-04-12 23:05:56] [com.apple.WebKit.GPU (com.apple.WebKit.GPU)] AVCaptureVideoDataOutput setSampleBufferDelegate: chamado
+[2025-04-12 23:05:56] [com.apple.WebKit.GPU (com.apple.WebKit.GPU)] AVCaptureSession startRunning chamado
+[2025-04-12 23:05:56] [com.apple.WebKit.GPU (com.apple.WebKit.GPU)] Resolução da câmera: 1440x1080
+[2025-04-12 23:05:56] [com.apple.WebKit.GPU (com.apple.WebKit.GPU)] Evento registrado: sessionStart
+[2025-04-12 23:06:04] [com.apple.WebKit.GPU (com.apple.WebKit.GPU)] Frame #500: 1440x1080, formato: 420f
+[2025-04-12 23:06:04] [com.apple.WebKit.GPU (com.apple.WebKit.GPU)] Evento registrado: videoFrame
+[2025-04-12 23:06:04] [com.apple.WebKit.GPU (com.apple.WebKit.GPU)] Erro ao salvar dados de diagnóstico: Invalid number value (NaN) in JSON write
+[2025-04-12 23:06:12] [com.apple.WebKit.GPU (com.apple.WebKit.GPU)] Frame #1000: 1440x1080, formato: 420f
+[2025-04-12 23:06:12] [com.apple.WebKit.GPU (com.apple.WebKit.GPU)] Evento registrado: videoFrame
+[2025-04-12 23:06:12] [com.apple.WebKit.GPU (com.apple.WebKit.GPU)] Erro ao salvar dados de diagnóstico: Invalid number value (NaN) in JSON write
+[2025-04-12 23:06:21] [com.apple.WebKit.GPU (com.apple.WebKit.GPU)] Frame #1500: 1440x1080, formato: 420f
+[2025-04-12 23:06:21] [com.apple.WebKit.GPU (com.apple.WebKit.GPU)] Evento registrado: videoFrame
+[2025-04-12 23:06:21] [com.apple.WebKit.GPU (com.apple.WebKit.GPU)] Erro ao salvar dados de diagnóstico: Invalid number value (NaN) in JSON write
+[2025-04-12 23:06:26] [com.apple.WebKit.GPU (com.apple.WebKit.GPU)] CameraDiagnostic sendo descarregado
+[2025-04-12 23:06:26] [com.apple.WebKit.GPU (com.apple.WebKit.GPU)] Erro ao salvar dados de diagnóstico: Invalid number value (NaN) in JSON write
